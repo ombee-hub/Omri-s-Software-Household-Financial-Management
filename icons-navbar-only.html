@@ -1,0 +1,126 @@
+/**
+ * קוד מעודכן לתפריט אייקונים בלבד
+ * יש להחליף את קוד תפריט האייקונים הקיים בזה
+ */
+
+<!-- קוד תפריט האייקונים -->
+<style>
+/* סגנון מעודכן לתפריט האייקונים ללא תפריט נוסף */
+.icons-navbar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 10px 0;
+    margin-bottom: 0; /* הורדנו את ה-margin כי אין תפריט מתחת */
+}
+
+.icons-container {
+    display: flex;
+    width: 100%;
+    max-width: 600px;
+    justify-content: space-between;
+}
+
+.icon-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: #333;
+    padding: 8px 10px; /* הגדלנו מעט את הפדינג האנכי */
+    border-radius: 4px;
+    position: relative;
+}
+
+.icon-link.active {
+    color: #673ab7; /* הצבע הסגול שנראה בתמונה */
+}
+
+.icon-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background-color: #673ab7; /* הקו התחתון בצבע סגול */
+    border-radius: 1.5px;
+}
+
+.icon-img {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+
+.icon-label {
+    font-size: 14px;
+    text-align: center;
+    font-family: 'Rubik', Arial, sans-serif;
+}
+
+/* עבור מסכים קטנים */
+@media (max-width: 480px) {
+    .icons-container {
+        width: 100%;
+    }
+    
+    .icon-img {
+        font-size: 20px;
+    }
+    
+    .icon-label {
+        font-size: 12px;
+    }
+}
+</style>
+
+<!-- תפריט האייקונים -->
+<div class="icons-navbar">
+    <div class="icons-container">
+        <a href="dashboard.html" class="icon-link" id="dashboard-link">
+            <span class="icon-img">📊</span>
+            <span class="icon-label">דאשבורד</span>
+        </a>
+        <a href="status.html" class="icon-link" id="status-link">
+            <span class="icon-img">⚙️</span>
+            <span class="icon-label">סטטוס עריכה</span>
+        </a>
+        <a href="index.html" class="icon-link" id="index-link">
+            <span class="icon-img">📅</span>
+            <span class="icon-label">יומן משימות</span>
+        </a>
+        <a href="details.html" class="icon-link" id="details-link">
+            <span class="icon-img">📋</span>
+            <span class="icon-label">פירוט קלטות</span>
+        </a>
+        <a href="gallery.html" class="icon-link" id="gallery-link">
+            <span class="icon-img">🖼️</span>
+            <span class="icon-label">גלריה</span>
+        </a>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // זיהוי הדף הנוכחי
+    const currentPath = window.location.pathname;
+    const pageName = currentPath.split('/').pop() || 'dashboard.html';
+    
+    // הסרת סיומת .html לצורך השוואה
+    const pageId = pageName.replace('.html', '');
+    
+    // טיפול במקרים מיוחדים
+    let linkId = pageId + '-link';
+    if (pageName === 'Edit Status.html') {
+        linkId = 'status-link';
+    }
+    
+    // הוספת מחלקת 'active' לקישור הנוכחי
+    const activeLink = document.getElementById(linkId);
+    if (activeLink) {
+        activeLink.classList.add('active');
+    }
+});
+</script>

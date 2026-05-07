@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1e3a5f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="התוכנה של עמרי">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="Omri's%20Software%20-%20icon.png">
+    <link rel="icon" type="image/png" href="Omri's%20Software%20-%20icon.png">
+    <title>התוכנה של עמרי - כרטיסי אשראי</title>
+    <link rel="stylesheet" href="app.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="appHeader"></div>
+
+    <div class="page-title-bar">
+        <div class="container">
+            <h2>כרטיסי אשראי</h2>
+            <div class="subtitle">מעקב פרטי חיוב ומסגרות אשראי. למען האבטחה - שומרים רק 4 ספרות אחרונות, בלי המספר המלא או CVV.</div>
+        </div>
+    </div>
+
+    <main class="container">
+        <div class="toolbar">
+            <div></div>
+            <button class="btn btn-primary" onclick="openCardModal()" id="addCardBtn">הוסף כרטיס</button>
+        </div>
+
+        <div id="cardsContainer"></div>
+    </main>
+
+    <div class="modal-backdrop" id="cardModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="cardModalTitle">הוסף כרטיס</div>
+                <button class="modal-close" onclick="closeModal('cardModal')" id="closeBtn"></button>
+            </div>
+            <form id="cardForm" onsubmit="saveCard(event)">
+                <input type="hidden" id="cardId">
+
+                <div class="form-group">
+                    <label class="form-label">שם הכרטיס / כינוי <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="cardNickname" class="form-input" placeholder="למשל: ויזה הוצאות בית" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">בנק / חברת אשראי</label>
+                        <input type="text" id="cardBank" class="form-input" placeholder="פועלים, לאומי, ישראכרט...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">סוג כרטיס</label>
+                        <select id="cardType" class="form-select">
+                            <option value="">בחר...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">4 ספרות אחרונות</label>
+                        <input type="text" id="cardLast4" class="form-input" maxlength="4" pattern="[0-9]{4}" placeholder="1234" inputmode="numeric">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">יום חיוב חודשי</label>
+                        <input type="number" id="cardBillingDay" class="form-input" min="1" max="31" placeholder="2">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">תוקף - חודש</label>
+                        <input type="number" id="cardExpMonth" class="form-input" min="1" max="12" placeholder="12">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">תוקף - שנה</label>
+                        <input type="number" id="cardExpYear" class="form-input" min="2024" max="2099" placeholder="2028">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">מסגרת אשראי (₪)</label>
+                    <input type="number" id="cardLimit" class="form-input" min="0" step="100" placeholder="10000">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">הערות</label>
+                    <textarea id="cardNotes" class="form-textarea" placeholder="פרטים נוספים..."></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">שמור</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('cardModal')">בטל</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Inject icons
+        document.getElementById('addCardBtn').innerHTML = ICONS.plus + '<span>הוסף כרטיס</span>';
+        document.getElementById('closeBtn').innerHTML = ICONS.close;
+
+        const typeSelect = document.getElementById('cardType');
+        CARD_TYPES.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.value;
+            opt.textContent = t.label;
+            typeSelect.appendChild(opt);
+        });
+
+        function escapeHtml(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+        }
+
+        function render() {
+            const cards = Cards.all();
+            const container = document.getElementById('cardsContainer');
+
+            const addBtn = `<button class="cc-add-card" onclick="openCardModal()">
+                ${ICONS.plus}
+                <span>הוסף כרטיס חדש</span>
+            </button>`;
+
+            if (cards.length === 0) {
+                container.innerHTML = `<div class="cc-grid">${addBtn}</div>`;
+                return;
+            }
+
+            const cardsHtml = cards.map(c => {
+                const last4 = c.last4 ? c.last4 : '••••';
+                const typeClass = c.type ? c.type : '';
+                const expDisplay = c.expMonth && c.expYear ? fmtMonth(c.expMonth, c.expYear) : '—';
+                const billingDisplay = c.billingDay ? c.billingDay + ' בחודש' : '—';
+                return `
+                <div>
+                    <div class="cc-card ${typeClass}">
+                        <div class="cc-top">
+                            <div class="cc-bank">${escapeHtml(c.bank || c.nickname || 'כרטיס')}</div>
+                            <div class="cc-type">${getCardType(c.type).label}</div>
+                        </div>
+                        <div class="cc-number">•••• •••• •••• ${escapeHtml(last4)}</div>
+                        <div class="cc-bottom">
+                            <div>
+                                <div class="cc-label">כינוי</div>
+                                <div class="cc-value">${escapeHtml(c.nickname || '—')}</div>
+                            </div>
+                            <div>
+                                <div class="cc-label">חיוב</div>
+                                <div class="cc-value">${billingDisplay}</div>
+                            </div>
+                            <div>
+                                <div class="cc-label">תוקף</div>
+                                <div class="cc-value">${expDisplay}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cc-actions">
+                        ${c.creditLimit ? `<small style="color:var(--gray-dark);margin-left:auto">מסגרת: ${fmtCurrency(c.creditLimit)}</small>` : ''}
+                        <button class="btn-icon" onclick="openCardModal('${c.id}')" title="ערוך">${ICONS.edit}</button>
+                        <button class="btn-icon danger" onclick="deleteCard('${c.id}', '${escapeHtml(c.nickname || c.bank || 'כרטיס')}')" title="מחק">${ICONS.trash}</button>
+                    </div>
+                </div>`;
+            }).join('');
+
+            container.innerHTML = `<div class="cc-grid">${cardsHtml}${addBtn}</div>`;
+        }
+
+        function openCardModal(id) {
+            document.getElementById('cardForm').reset();
+            document.getElementById('cardId').value = '';
+            document.getElementById('cardModalTitle').textContent = 'הוסף כרטיס';
+
+            if (id) {
+                const c = Cards.findById(id);
+                if (c) {
+                    document.getElementById('cardId').value = c.id;
+                    document.getElementById('cardNickname').value = c.nickname || '';
+                    document.getElementById('cardBank').value = c.bank || '';
+                    document.getElementById('cardType').value = c.type || '';
+                    document.getElementById('cardLast4').value = c.last4 || '';
+                    document.getElementById('cardBillingDay').value = c.billingDay || '';
+                    document.getElementById('cardExpMonth').value = c.expMonth || '';
+                    document.getElementById('cardExpYear').value = c.expYear || '';
+                    document.getElementById('cardLimit').value = c.creditLimit || '';
+                    document.getElementById('cardNotes').value = c.notes || '';
+                    document.getElementById('cardModalTitle').textContent = 'עריכת כרטיס';
+                }
+            }
+            openModal('cardModal');
+        }
+
+        function saveCard(e) {
+            e.preventDefault();
+            const id = document.getElementById('cardId').value;
+            const data = {
+                nickname: document.getElementById('cardNickname').value.trim(),
+                bank: document.getElementById('cardBank').value.trim(),
+                type: document.getElementById('cardType').value,
+                last4: document.getElementById('cardLast4').value.trim(),
+                billingDay: Number(document.getElementById('cardBillingDay').value) || null,
+                expMonth: Number(document.getElementById('cardExpMonth').value) || null,
+                expYear: Number(document.getElementById('cardExpYear').value) || null,
+                creditLimit: Number(document.getElementById('cardLimit').value) || null,
+                notes: document.getElementById('cardNotes').value.trim(),
+            };
+            if (id) Cards.update(id, data);
+            else Cards.add(data);
+            closeModal('cardModal');
+            render();
+        }
+
+        function deleteCard(id, name) {
+            if (confirmDelete(name)) {
+                Cards.remove(id);
+                render();
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>

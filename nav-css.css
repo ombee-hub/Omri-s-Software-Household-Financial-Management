@@ -1,0 +1,63 @@
+/* nav-icons.css - סגנון לתפריט אייקונים */
+
+.top-icons-navbar {
+    display: flex;
+    justify-content: center;
+    background-color: white;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 10px 0;
+    margin-bottom: 20px;
+}
+
+.top-icons-container {
+    display: flex;
+    justify-content: center;
+    gap: 25px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.icon-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: #333;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+.icon-link.active {
+    color: #0d6efd;
+}
+
+.icon-link:hover:not(.active) {
+    background-color: #f8f9fa;
+}
+
+.nav-icon {
+    font-size: 1.5rem;
+    margin-bottom: 5px;
+}
+
+.icon-img {
+    width: 24px;
+    height: 24px;
+    margin-bottom: 5px;
+}
+
+.icon-label {
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+/* מותאם למכשירים ניידים */
+@media (max-width: 600px) {
+    .top-icons-container {
+        gap: 10px;
+    }
+    
+    .icon-label {
+        font-size: 0.7rem;
+    }
+}

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>הסתרת הודעת ברוכים הבאים - מערכת ניהול קלטות</title>
+    <style>
+        /* הסתרת ההודעה מעל התפריט */
+        .welcome-message,
+        .announcement,
+        .intro-message,
+        div:has(> h2:contains("ברוכים הבאים")),
+        [class*="welcome"],
+        [class*="intro"],
+        .blue-box,
+        /* סלקטור ספציפי להודעה שזיהינו בתמונה */
+        div:has(> h2, > div > h2):has(> span:contains("ברוכים הבאים למערכת ניהול הקלטות")) {
+            display: none !important;
+        }
+        
+        /* במקרה שזה אלמנט עם גבול כחול ספציפי */
+        div[class*="box"]:has(> h2:contains("ברוכים")),
+        div.blue-border,
+        /* האלמנט הספציפי שנראה בתמונה */
+        div.blue-box, div.welcome-box {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- קוד JavaScript להסרת ההודעה באופן דינמי -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // אופציה 1: מחפש את האלמנט לפי הטקסט שלו
+            const elements = document.querySelectorAll('h1, h2, h3, p, div');
+            elements.forEach(el => {
+                if (el.innerText && el.innerText.includes('ברוכים הבאים למערכת ניהול הקלטות')) {
+                    // מוצא את האלמנט המכיל (container) שכנראה הוא ההודעה המלאה
+                    let parent = el;
+                    // עולה עד 3 רמות למעלה לחפש את המכיל העיקרי של ההודעה
+                    for (let i = 0; i < 3; i++) {
+                        if (parent.parentElement) {
+                            parent = parent.parentElement;
+                        }
+                    }
+                    // מסתיר את האלמנט המכיל
+                    parent.style.display = 'none';
+                }
+            });
+            
+            // אופציה 2: מסיר את האלמנט העליון בדף שנמצא מעל התפריט
+            const mainNav = document.querySelector('nav, [class*="nav"], [class*="menu"]');
+            if (mainNav) {
+                const allElements = Array.from(document.body.querySelectorAll('*'));
+                const elementsAboveNav = allElements.filter(el => {
+                    // בודק אם האלמנט מעל התפריט
+                    const elRect = el.getBoundingClientRect();
+                    const navRect = mainNav.getBoundingClientRect();
+                    return elRect.bottom <= navRect.top && el.offsetWidth > 0 && el.offsetHeight > 0;
+                });
+                
+                // מסיר את האלמנטים שנמצאים מעל התפריט
+                elementsAboveNav.forEach(el => {
+                    // מוודא שזה לא לוגו או כפתור התנתקות
+                    if (!el.innerText || (!el.innerText.includes('התנתק') && !el.innerText.includes('logo'))) {
+                        el.style.display = 'none';
+                    }
+                });
+            }
+        });
+    </script>
+
+    <!-- הוראות שימוש -->
+    <div style="padding: 20px; max-width: 800px; margin: 0 auto;">
+        <h1>הוראות להסתרת ההודעה מעל התפריט</h1>
+        <ol>
+            <li>
+                <strong>דרך 1: הוספת CSS בלבד</strong>
+                <p>העתק את קוד ה-CSS מהחלק העליון של קובץ זה והוסף אותו לקובץ ה-CSS של האתר, או הוסף אותו ב-head של הדף באמצעות תגית style.</p>
+            </li>
+            <li>
+                <strong>דרך 2: הוספת JavaScript</strong>
+                <p>העתק את קוד ה-JavaScript והוסף אותו בסוף ה-body של הדף.</p>
+            </li>
+            <li>
+                <strong>דרך 3: שימוש בקובץ חיצוני</strong>
+                <p>ניתן להעתיק את הקובץ הזה לשרת ולהוסיף אליו קישור מהדף הראשי.</p>
+            </li>
+        </ol>
+        
+        <h2>פתרון ייעודי בהתאם למבנה הדף המדויק</h2>
+        <p>אם הפתרונות הכלליים לא עובדים, יש לבדוק את מבנה ה-HTML המדויק של הדף ולהתאים את הסלקטורים ל-CSS:</p>
+        <pre style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto;">
+/* החלף את '.welcome-message' בשם המחלקה המדויק של ההודעה */
+.welcome-message {
+    display: none !important;
+}
+        </pre>
+    </div>
+</body>
+</html>

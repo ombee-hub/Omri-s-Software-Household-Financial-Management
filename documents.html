@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1e3a5f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="התוכנה של עמרי">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="Omri's%20Software%20-%20icon.png">
+    <link rel="icon" type="image/png" href="Omri's%20Software%20-%20icon.png">
+    <title>התוכנה של עמרי - מסמכים</title>
+    <link rel="stylesheet" href="app.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .docs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+        .doc-card {
+            background: white; border-radius: var(--radius); padding: 22px;
+            box-shadow: var(--shadow); border: 1px solid var(--border);
+            transition: 0.2s; display: flex; flex-direction: column; gap: 10px;
+            position: relative; overflow: hidden;
+        }
+        .doc-card::before {
+            content: ''; position: absolute; top: 0; right: 0;
+            width: 4px; height: 100%; background: var(--primary);
+        }
+        .doc-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+        .doc-icon-row { display: flex; align-items: center; gap: 12px; }
+        .doc-icon {
+            width: 44px; height: 44px; border-radius: 10px;
+            background: var(--light); color: var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .doc-icon svg { width: 22px; height: 22px; }
+        .doc-title { font-weight: 700; font-size: 1.05rem; color: var(--dark); flex: 1; }
+        .doc-meta { color: var(--gray-dark); font-size: 0.88rem; line-height: 1.7; }
+        .doc-meta strong { color: var(--dark); font-weight: 600; }
+        .doc-actions { display: flex; gap: 4px; justify-content: flex-end; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--border); }
+    </style>
+</head>
+<body>
+    <div id="appHeader"></div>
+
+    <div class="page-title-bar">
+        <div class="container">
+            <h2>מסמכי הבית</h2>
+            <div class="subtitle">מקום מרכזי לזכור איפה שמורים חוזים, תעודות ומסמכים חשובים</div>
+        </div>
+    </div>
+
+    <main class="container">
+        <div class="toolbar">
+            <select id="filterCategory" class="form-select" style="max-width:220px" onchange="render()">
+                <option value="">כל הקטגוריות</option>
+            </select>
+            <button class="btn btn-primary" onclick="openDocModal()" id="addDocBtn">הוסף מסמך</button>
+        </div>
+
+        <div id="docsContainer"></div>
+    </main>
+
+    <div class="modal-backdrop" id="docModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="docModalTitle">הוסף מסמך</div>
+                <button class="modal-close" onclick="closeModal('docModal')" id="closeBtn"></button>
+            </div>
+            <form id="docForm" onsubmit="saveDoc(event)">
+                <input type="hidden" id="docId">
+
+                <div class="form-group">
+                    <label class="form-label">שם המסמך <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="docTitle" class="form-input" placeholder="חוזה שכירות 2026" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">קטגוריה</label>
+                        <select id="docCategory" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">תאריך</label>
+                        <input type="date" id="docDate" class="form-input">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">מיקום פיזי / קישור</label>
+                    <input type="text" id="docLocation" class="form-input" placeholder="תיקייה מס' 3 בארון, או https://drive...">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">הערות</label>
+                    <textarea id="docNotes" class="form-textarea"></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">שמור</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('docModal')">בטל</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        document.getElementById('addDocBtn').innerHTML = ICONS.plus + '<span>הוסף מסמך</span>';
+        document.getElementById('closeBtn').innerHTML = ICONS.close;
+
+        const catSelect = document.getElementById('docCategory');
+        const filterSelect = document.getElementById('filterCategory');
+        DOC_CATEGORIES.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.value; opt.textContent = c.label;
+            catSelect.appendChild(opt);
+            filterSelect.appendChild(opt.cloneNode(true));
+        });
+
+        function escapeHtml(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+        }
+
+        function isUrl(s) { return /^https?:\/\//i.test(s || ''); }
+
+        function render() {
+            const filter = filterSelect.value;
+            let docs = Docs.all();
+            if (filter) docs = docs.filter(d => d.category === filter);
+
+            const container = document.getElementById('docsContainer');
+            if (docs.length === 0) {
+                container.innerHTML = `
+                    <div class="card">
+                        <div class="empty-state">
+                            <div class="empty-icon">${ICONS.folder}</div>
+                            <h3>אין מסמכים</h3>
+                            <p>לחץ על "הוסף מסמך" כדי לרשום מסמך חדש</p>
+                        </div>
+                    </div>`;
+                return;
+            }
+
+            const sorted = [...docs].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+            container.innerHTML = `<div class="docs-grid">${sorted.map(d => {
+                const cat = getDocCategory(d.category);
+                const locationDisplay = isUrl(d.location)
+                    ? `<a href="${escapeHtml(d.location)}" target="_blank">פתח קישור ↗</a>`
+                    : escapeHtml(d.location || '—');
+                return `
+                <div class="doc-card">
+                    <div class="doc-icon-row">
+                        <div class="doc-icon">${ICONS.folder}</div>
+                        <div class="doc-title">${escapeHtml(d.title)}</div>
+                    </div>
+                    <div class="doc-meta">
+                        <div><strong>קטגוריה:</strong> ${cat.label}</div>
+                        ${d.date ? `<div><strong>תאריך:</strong> ${fmtDate(d.date)}</div>` : ''}
+                        <div><strong>מיקום:</strong> ${locationDisplay}</div>
+                        ${d.notes ? `<div><strong>הערות:</strong> ${escapeHtml(d.notes)}</div>` : ''}
+                    </div>
+                    <div class="doc-actions">
+                        <button class="btn-icon" onclick="openDocModal('${d.id}')" title="ערוך">${ICONS.edit}</button>
+                        <button class="btn-icon danger" onclick="deleteDoc('${d.id}', '${escapeHtml(d.title)}')" title="מחק">${ICONS.trash}</button>
+                    </div>
+                </div>`;
+            }).join('')}</div>`;
+        }
+
+        function openDocModal(id) {
+            document.getElementById('docForm').reset();
+            document.getElementById('docId').value = '';
+            document.getElementById('docModalTitle').textContent = 'הוסף מסמך';
+
+            if (id) {
+                const d = Docs.all().find(x => x.id === id);
+                if (d) {
+                    document.getElementById('docId').value = d.id;
+                    document.getElementById('docTitle').value = d.title || '';
+                    document.getElementById('docCategory').value = d.category || '';
+                    document.getElementById('docDate').value = d.date || '';
+                    document.getElementById('docLocation').value = d.location || '';
+                    document.getElementById('docNotes').value = d.notes || '';
+                    document.getElementById('docModalTitle').textContent = 'עריכת מסמך';
+                }
+            }
+            openModal('docModal');
+        }
+
+        function saveDoc(e) {
+            e.preventDefault();
+            const id = document.getElementById('docId').value;
+            const data = {
+                title: document.getElementById('docTitle').value.trim(),
+                category: document.getElementById('docCategory').value,
+                date: document.getElementById('docDate').value || null,
+                location: document.getElementById('docLocation').value.trim(),
+                notes: document.getElementById('docNotes').value.trim(),
+            };
+            if (id) Docs.update(id, data);
+            else Docs.add(data);
+            closeModal('docModal');
+            render();
+        }
+
+        function deleteDoc(id, name) {
+            if (confirmDelete(name)) {
+                Docs.remove(id);
+                render();
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>

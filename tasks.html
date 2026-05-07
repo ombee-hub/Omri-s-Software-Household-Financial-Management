@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1e3a5f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="התוכנה של עמרי">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="Omri's%20Software%20-%20icon.png">
+    <link rel="icon" type="image/png" href="Omri's%20Software%20-%20icon.png">
+    <title>התוכנה של עמרי - משימות</title>
+    <link rel="stylesheet" href="app.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .task-row { display: flex; align-items: center; gap: 14px; padding: 14px; border-bottom: 1px solid var(--border); }
+        .task-row:last-child { border-bottom: none; }
+        .task-row.done .task-title { text-decoration: line-through; color: var(--gray); }
+        .task-checkbox { width: 22px; height: 22px; cursor: pointer; flex-shrink: 0; accent-color: var(--secondary); }
+        .task-content { flex: 1; }
+        .task-title { font-weight: 600; font-size: 1rem; }
+        .task-meta { color: var(--gray-dark); font-size: 0.85rem; margin-top: 4px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+        .task-meta svg { width: 14px; height: 14px; vertical-align: middle; }
+        .task-row .actions { display: flex; gap: 4px; }
+    </style>
+</head>
+<body>
+    <div id="appHeader"></div>
+
+    <div class="page-title-bar">
+        <div class="container">
+            <h2>משימות הבית</h2>
+            <div class="subtitle">תיקונים, ביקורים, תורים וכל מה שצריך לזכור</div>
+        </div>
+    </div>
+
+    <main class="container">
+        <div class="toolbar">
+            <select id="filterStatus" class="form-select" style="max-width:220px" onchange="render()">
+                <option value="open">פתוחות</option>
+                <option value="done">הושלמו</option>
+                <option value="all">הכל</option>
+            </select>
+            <button class="btn btn-primary" onclick="openTaskModal()" id="addTaskBtn">הוסף משימה</button>
+        </div>
+
+        <div class="card">
+            <div id="tasksContainer"></div>
+        </div>
+    </main>
+
+    <div class="modal-backdrop" id="taskModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="taskModalTitle">הוסף משימה</div>
+                <button class="modal-close" onclick="closeModal('taskModal')" id="closeBtn"></button>
+            </div>
+            <form id="taskForm" onsubmit="saveTask(event)">
+                <input type="hidden" id="taskId">
+
+                <div class="form-group">
+                    <label class="form-label">משימה <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="taskTitle" class="form-input" placeholder="להזמין שירות תיקון מזגן" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">תאריך יעד</label>
+                        <input type="date" id="taskDate" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">עדיפות</label>
+                        <select id="taskPriority" class="form-select">
+                            <option value="low">רגילה</option>
+                            <option value="medium">בינונית</option>
+                            <option value="high">גבוהה</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">הערות</label>
+                    <textarea id="taskNotes" class="form-textarea"></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">שמור</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('taskModal')">בטל</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        document.getElementById('addTaskBtn').innerHTML = ICONS.plus + '<span>הוסף משימה</span>';
+        document.getElementById('closeBtn').innerHTML = ICONS.close;
+
+        function escapeHtml(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+        }
+
+        function priorityBadge(p) {
+            if (p === 'high') return '<span class="badge badge-danger">גבוהה</span>';
+            if (p === 'medium') return '<span class="badge badge-warning">בינונית</span>';
+            return '<span class="badge badge-gray">רגילה</span>';
+        }
+
+        function render() {
+            const filter = document.getElementById('filterStatus').value;
+            let tasks = Tasks.all();
+            if (filter === 'open') tasks = tasks.filter(t => !t.done);
+            else if (filter === 'done') tasks = tasks.filter(t => t.done);
+
+            const container = document.getElementById('tasksContainer');
+            if (tasks.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">${ICONS.check}</div>
+                        <h3>אין משימות</h3>
+                        <p>${filter === 'done' ? 'עדיין לא השלמת משימות' : 'לחץ על "הוסף משימה" כדי להתחיל'}</p>
+                    </div>`;
+                return;
+            }
+
+            const sorted = [...tasks].sort((a, b) => {
+                if (a.done !== b.done) return a.done ? 1 : -1;
+                return (a.date || '').localeCompare(b.date || '');
+            });
+
+            container.innerHTML = sorted.map(t => {
+                const overdue = !t.done && t.date && t.date < todayISO();
+                return `
+                <div class="task-row ${t.done ? 'done' : ''}">
+                    <input type="checkbox" class="task-checkbox" ${t.done ? 'checked' : ''} onchange="toggleDone('${t.id}')">
+                    <div class="task-content">
+                        <div class="task-title">${escapeHtml(t.title)}</div>
+                        <div class="task-meta">
+                            ${t.date ? `<span>${ICONS.calendar} ${fmtDate(t.date)}${overdue ? ' <span class="badge badge-danger">בפיגור</span>' : ''}</span>` : ''}
+                            ${priorityBadge(t.priority)}
+                            ${t.notes ? `<span>${escapeHtml(t.notes)}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-icon" onclick="openTaskModal('${t.id}')" title="ערוך">${ICONS.edit}</button>
+                        <button class="btn-icon danger" onclick="deleteTask('${t.id}', '${escapeHtml(t.title)}')" title="מחק">${ICONS.trash}</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function openTaskModal(id) {
+            document.getElementById('taskForm').reset();
+            document.getElementById('taskId').value = '';
+            document.getElementById('taskModalTitle').textContent = 'הוסף משימה';
+            document.getElementById('taskPriority').value = 'low';
+
+            if (id) {
+                const t = Tasks.all().find(x => x.id === id);
+                if (t) {
+                    document.getElementById('taskId').value = t.id;
+                    document.getElementById('taskTitle').value = t.title || '';
+                    document.getElementById('taskDate').value = t.date || '';
+                    document.getElementById('taskPriority').value = t.priority || 'low';
+                    document.getElementById('taskNotes').value = t.notes || '';
+                    document.getElementById('taskModalTitle').textContent = 'עריכת משימה';
+                }
+            }
+            openModal('taskModal');
+        }
+
+        function saveTask(e) {
+            e.preventDefault();
+            const id = document.getElementById('taskId').value;
+            const data = {
+                title: document.getElementById('taskTitle').value.trim(),
+                date: document.getElementById('taskDate').value || null,
+                priority: document.getElementById('taskPriority').value,
+                notes: document.getElementById('taskNotes').value.trim(),
+            };
+            if (id) Tasks.update(id, data);
+            else Tasks.add(data);
+            closeModal('taskModal');
+            render();
+        }
+
+        function toggleDone(id) {
+            Tasks.toggleDone(id);
+            render();
+        }
+
+        function deleteTask(id, name) {
+            if (confirmDelete(name)) {
+                Tasks.remove(id);
+                render();
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>

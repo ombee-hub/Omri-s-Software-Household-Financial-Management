@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>סטטוס עריכה</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎥</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="navigation.js" defer></script>
+    
+</head>
+<body>
+<!-- תפריט האייקונים הזהה לתמונה -->
+<style>
+/* סגנון תפריט האייקונים */
+.top-menu-container {
+    border-bottom: 1px solid #e0e0e0;
+    background-color: #f8f9fa;
+    padding-bottom: 5px;
+}
+
+.site-header {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.site-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+}
+
+.site-logo {
+    margin-left: 10px;
+    font-size: 28px;
+}
+
+.icons-menu {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 5px 0 10px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.icons-container {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    max-width: 700px;
+}
+
+.icon-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: #333;
+    padding: 5px 15px;
+    position: relative;
+}
+
+.icon-link.active {
+    color: #673ab7; /* צבע סגול להדגשה */
+}
+
+.icon-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background-color: #673ab7;
+    border-radius: 2px;
+}
+
+.icon-img {
+    width: 24px;
+    height: 24px;
+    margin-bottom: 5px;
+}
+
+.icon-label {
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'Rubik', Arial, sans-serif;
+    text-align: center;
+}
+
+/* עבור מסכים קטנים */
+@media (max-width: 600px) {
+    .icons-container {
+        width: 100%;
+    }
+    
+    .icon-img {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .icon-label {
+        font-size: 12px;
+    }
+}
+</style>
+
+<div class="top-menu-container">
+    <header class="site-header">
+        <h1 class="site-title">מערכת ניהול קלטות</h1>
+        <span class="site-logo">🎥</span>
+    </header>
+
+    <nav class="icons-menu">
+        <div class="icons-container">
+            <a href="gallery.html" class="icon-link" id="gallery-link">
+                <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiBmaWxsPSIjMjA5NjVhIj48cGF0aCBkPSJNMCAxMDBhMjggMjggMCAwIDEgMjgtMjhoNDU2YTI4IDI4IDAgMCAxIDI4IDI4djMxMmEyOCAyOCAwIDAgMS0yOCAyOEgyOGEyOCAyOCAwIDAgMS0yOC0yOFYxMDB6bTk3LjU2NCAzNGMtMTkuMDkgMC0zNC41NjQgMTUuNDc0LTM0LjU2NCAzNC41NjRzMTUuNDc0IDM0LjU2NCAzNC41NjQgMzQuNTY0czM0LjU2NC0xNS40NzQgMzQuNTY0LTM0LjU2NFMxMTYuNjU0IDEzNCA5Ny41NjQgMTM0ek00OCA0MTRoNDE2VjE4Mi41NjRsLTExNi00Ni4yMjZMMjA4IDMxMiA5NiAyMDZ2MjA4eiI+PC9wYXRoPjwvc3ZnPg==" class="icon-img" alt="גלריה">
+                <span class="icon-label">גלריה</span>
+            </a>
+            <a href="details.html" class="icon-link" id="details-link">
+                <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiBmaWxsPSIjZTA3YTVmIj48cGF0aCBkPSJNNjQgMzJDMjguNyAzMiAwIDYwLjcgMCA5NnYzMjBjMCAzNS4zIDI4LjcgNjQgNjQgNjRINDQ4YzM1LjMgMCA2NC0yOC43IDY0LTY0VjE5MmMwLTM1LjMtMjguNy02NC02NC02NEgxNzZjLTguOCAwLTE2LTcuMi0xNi0xNnMtNy4yLTE2LTE2LTE2SDY0em04MCAxNjBINDQ4YzguOCAwIDE2IDcuMiAxNiAxNnYyMDhjMCA4LjgtNy4yIDE2LTE2IDE2SDgwYy04LjggMC0xNi03LjItMTYtMTZWMjA4YzAtOC44IDcuMi0xNiAxNi0xNnptMjA4IDY0SDExMnYzMmgxMTJMMjI0IDI4OEg4OGwxMDQgODhoMjQwdi0zMmgtMTEybC0yNCAyNGgyMTZ6Ij48L3BhdGg+PC9zdmc+" class="icon-img" alt="פירוט קלטות">
+                <span class="icon-label">פירוט קלטות</span>
+            </a>
+            <a href="index.html" class="icon-link" id="index-link">
+                <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiBmaWxsPSIjNDA5NmZmIj48cGF0aCBkPSJNMCA5NkMwIDYwLjcgMjguNyAzMiA2NCAzMmg2NEMxNjQgMzIgMTkyIDYwLjcgMTkyIDk2djMyaDI1NmMzNS4zIDAgNjQgMjguNyA2NCA2NHYyNTZjMCAzNS4zLTI4LjcgNjQtNjQgNjRINjRjLTM1LjMgMC02NC0yOC43LTY0LTY0Vjk2em02NCAwdjM1MmgzODRWMTkySDY0di02NHYtMzJ6TTQwMCAzMzZjMC0yNi41LTIxLjUtNDgtNDgtNDhzLTQ4IDIxLjUtNDggNDhzMjEuNSA0OCA0OCA0OHM0OC0yMS41IDQ4LTQ4ek0yNTYgOTZINDh2MzJoMjA4Vjk2eiI+PC9wYXRoPjwvc3ZnPg==" class="icon-img" alt="יומן משימות">
+                <span class="icon-label">יומן משימות</span>
+            </a>
+            <a href="status.html" class="icon-link" id="status-link">
+                <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiBmaWxsPSIjOWM5ZGExIj48cGF0aCBkPSJNNDk1LjkgMTY2LjZjMy4yIDguNyAuNSAxOC40LTYuNCAyNC42bC00My4zIDM5LjRjMS4xIDguMyAxLjcgMTYuOCAxLjcgMjUuNHMtLjYgMTcuMS0xLjcgMjUuNGw0My4zIDM5LjRjNi45IDYuMiA5LjYgMTUuOSA2LjQgMjQuNmMtNC40IDExLjktOS43IDIzLjMtMTUuOCAzNC4zbC00LjcgOC4xYy02LjYgMTEtMTQgMjEuNC0yMi4xIDMxLjJjLTUuOSA3LjItMTUuNyA5LjYtMjQuNSA2LjhsLTU1LjctMTcuN2MtMTMuNCAxMC4zLTI4LjIgMTguOS00NCAyNS40bC0xMi41IDU3LjFjLTIgOS4xLTkgMTYuMy0xOC4yIDE3LjhjLTEzLjggMi4zLTI4IDMuNS00Mi41IDMuNXMtMjguNy0xLjItNDIuNS0zLjVjLTkuMi0xLjUtMTYuMi04LjctMTguMi0xNy44bC0xMi41LTU3LjFjLTE1LjgtNi41LTMwLjYtMTUuMS00NC0yNS40TDgzLjEgMzQ1LjhjLTguOCAyLjgtMTguNiAuMy0yNC41LTYuOGMtOC4xLTkuOC0xNS41LTIwLjItMjIuMS0zMS4ybC00LjctOC4xYy02LjEtMTEtMTEuNC0yMi40LTE1LjgtMzQuM2MtMy4yLTguNy0uNS0xOC40IDYuNC0yNC42bDQzLjMtMzkuNEM2NC42IDIwMS4xIDY0IDE5Mi42IDY0IDE4NHMuNi0xNy4xIDEuNy0yNS40TDIyLjQgMTE5LjJjLTYuOS02LjItOS42LTE1LjktNi40LTI0LjZjNC40LTExLjkgOS43LTIzLjMgMTUuOC0zNC4zbDQuNy04LjFjNi42LTExIDE0LTIxLjQgMjIuMS0zMS4yYzUuOS03LjIgMTUuNy05LjYgMjQuNS02LjhsMTIyLjMgNTdjNDMuMS0zNS44IDk5LjUtNTcuNiAxNjAuNC01Ny42YzYwLjkgMCAxMTcuMiAyMS44IDE2MC40IDU3LjZjNDYuOC0yMS44IDU0LjctMjIuMSA1NS43LTIyLjFjOC44LTIuOCAxOC42LS4zIDI0LjUgNi44YzguMSA5LjggMTUuNSAyMC4yIDIyLjEgMzEuMmw0LjcgOC4xYzYuMSAxMSAxMS40IDIyLjQgMTUuOCAzNC4zek0yNTYgMzM2YTgwIDgwIDAgMSAwIDAtMTYwYTgwIDgwIDAgMSAwIDAgMTYweiI+PC9wYXRoPjwvc3ZnPg==" class="icon-img" alt="סטטוס עריכה">
+                <span class="icon-label">סטטוס עריכה</span>
+            </a>
+            <a href="dashboard.html" class="icon-link" id="dashboard-link">
+                <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiBmaWxsPSIjZWE1MTlkIj48cGF0aCBkPSJNMCA5NkMwIDYwLjcgMjguNyAzMiA2NCAzMkg0NDhjMzUuMyAwIDY0IDI4LjcgNjQgNjRWNDE2YzAgMzUuMy0yOC43IDY0LTY0IDY0SDY0Yy0zNS4zIDAtNjQtMjguNy02NC02NFY5NnpNNjQgMzJDMjguNyAzMiAwIDYwLjcgMCA5NnY4MEMwIDIxMS44IDE2LjIgMjI4IDM2IDIyOEgyMDhjMTkuOCAwIDM2LTE2LjIgMzYtMzZWOTZjMC0xOS44LTE2LjItMzYtMzYtMzZINjR6bTEyOCAxODJoMTQyLjVjMTcgMCAzMy41IDMuNSA0OC45IDEwLjFsMTAgNC4xYzQxLjUgMTcuOSA2Ni43IDU5IDY2LjcgMTAzLjVjMCAwLTExLjItLjYtMjkuOS03LjhjLTIwLjEtNy44LTQ0LjQtMjIuOC02OC44LTQ3LjJjLTQ4LjgtNDguOC04NS30vYXRoPlwvc3ZnPg==" class="icon-img" alt="דאשבורד">
+                <span class="icon-label">דאשבורד</span>
+            </a>
+        </div>
+    </nav>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // זיהוי הדף הנוכחי
+    const currentPath = window.location.pathname;
+    const pageName = currentPath.split('/').pop() || 'dashboard.html';
+    
+    // הסרת סיומת .html לצורך השוואה
+    const pageId = pageName.replace('.html', '');
+    
+    // טיפול במקרים מיוחדים
+    let linkId = pageId + '-link';
+    if (pageName === 'Edit Status.html') {
+        linkId = 'status-link';
+    }
+    
+    // הוספת מחלקת 'active' לקישור הנוכחי
+    const activeLink = document.getElementById(linkId);
+    if (activeLink) {
+        activeLink.classList.add('active');
+    }
+});
+</script>
+
+
+<!-- קוד תפריט האייקונים -->
+
+
+<!-- תפריט האייקונים -->
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // זיהוי הדף הנוכחי
+    const currentPath = window.location.pathname;
+    const pageName = currentPath.split('/').pop() || 'dashboard.html';
+    
+    // הסרת סיומת .html לצורך השוואה
+    const pageId = pageName.replace('.html', '');
+    
+    // טיפול במקרים מיוחדים
+    let linkId = pageId + '-link';
+    if (pageName === 'Edit Status.html') {
+        linkId = 'status-link';
+    }
+    
+    // הוספת מחלקת 'active' לקישור הנוכחי
+    const activeLink = document.getElementById(linkId);
+    if (activeLink) {
+        activeLink.classList.add('active');
+    }
+});
+</script>
+
+
+    <div class="app-container">
+        
+
+        
+
+        <main class="main-content">
+            <h2 class="dashboard-title">מצב עריכת קלטות</h2>
+
+            <div class="status-container">
+                <!-- קלטות לא ערוכות -->
+                <div class="status-column not-edited">
+                    <div class="column-header">
+                        <h3 class="column-title">
+                            <span class="column-status-indicator"></span>
+                            <span class="column-title-text">לא ערוכות</span>
+                        </h3>
+                        <span class="status-count" id="not-edited-count">0</span>
+                    </div>
+                    <div class="column-content" id="notEditedTasks">
+                        <div class="no-tasks">אין קלטות בסטטוס זה</div>
+                    </div>
+                </div>
+
+                <!-- קלטות לפני עריכה -->
+                <div class="status-column before-edit">
+                    <div class="column-header">
+                        <h3 class="column-title">
+                            <span class="column-status-indicator"></span>
+                            <span class="column-title-text">לפני עריכה</span>
+                        </h3>
+                        <span class="status-count" id="before-edit-count">1</span>
+                    </div>
+                    <div class="column-content" id="beforeEditTasks">
+                        <div class="task-card">
+                            <div class="task-header">
+                                <div class="task-title">תיבת נגינה מופע סולונה 2011</div>
+                                <div class="task-category">אירועים</div>
+                                <div class="task-time">
+                                    <div class="task-time-item">
+                                        <span class="icon">📅</span>
+                                        2025-03-15
+                                    </div>
+                                    <div class="task-time-item">
+                                        <span class="icon">🕒</span>
+                                        10:00
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="task-description">מופע שירים עם תיבת נגינה</div>
+                            <div class="task-people">
+                                <div class="task-people-title">אנשים בקלטת:</div>
+                                <ul class="people-list">
+                                    <li>אייל אבא</li>
+                                    <li>איתי סלמן</li>
+                                    <li>עמרי בן אליהו</li>
+                                    <li>דניאל</li>
+                                </ul>
+                            </div>
+                            <div class="task-actions">
+                                <button class="btn btn-primary">
+                                    <span class="icon">✏️</span> ערוך
+                                </button>
+                                <button class="btn btn-success">
+                                    <span class="icon">✓</span> העבר לערוך
+                                </button>
+                                <button class="btn btn-danger">
+                                    <span class="icon">🗑️</span> מחק
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- קלטות ערוכות -->
+                <div class="status-column edited">
+                    <div class="column-header">
+                        <h3 class="column-title">
+                            <span class="column-status-indicator"></span>
+                            <span class="column-title-text">ערוכות</span>
+                        </h3>
+                        <span class="status-count" id="edited-count">1</span>
+                    </div>
+                    <div class="column-content" id="editedTasks">
+                        <div class="task-card">
+                            <div class="task-header">
+                                <div class="task-title">עמרי בן 3</div>
+                                <div class="task-category">משפחה</div>
+                                <div class="task-time">
+                                    <div class="task-time-item">
+                                        <span class="icon">📅</span>
+                                        2025-03-07
+                                    </div>
+                                    <div class="task-time-item">
+                                        <span class="icon">🕒</span>
+                                        10:00
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="task-description">הילדים המופעים בקלטת הם איין בן דוד מאמריקה, עמרי בן דוד מישראל, נוי בת דודה מישראל</div>
+                            <div class="task-converter">
+                                <strong>בוצע על ידי:</strong> עמרי
+                            </div>
+                            <div class="task-actions">
+                                <button class="btn btn-primary">
+                                    <span class="icon">✏️</span> ערוך
+                                </button>
+                                <button class="btn btn-danger">
+                                    <span class="icon">🗑️</span> מחק
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for editing -->
+    <div id="editModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title">עריכת קלטת</h3>
+                <button class="modal-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <input type="hidden" id="editTaskId">
+                    
+                    <div class="form-group">
+                        <label for="editTitle" class="form-label">שם הקלטת</label>
+                        <input type="text" id="editTitle" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label for="editCategory" class="form-label">קטגוריה</label>
+                            <select id="editCategory" class="form-control" required>
+                                <option value="family">משפחה</option>
+                                <option value="friends">חברים</option>
+                                <option value="events">אירועים</option>
+                                <option value="other">אחר</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editStatus" class="form-label">סטטוס עריכה</label>
+                            <select id="editStatus" class="form-control" required>
+                                <option value="not_edited">לא ערוכה</option>
+                                <option value="before_edit">לפני עריכה</option>
+                                <option value="edited">ערוכה</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editDescription" class="form-label">תיאור הקלטת</label>
+                        <textarea id="editDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label for="editDate" class="form-label">תאריך הקלטה</label>
+                            <input type="date" id="editDate" class="form-control" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editTime" class="form-label">שעת הקלטה</label>
+                            <select id="editTime" class="form-control">
+                                <option value="">בחר שעה</option>
+                                <option value="00:00">00:00</option>
+                                <option value="01:00">01:00</option>
+                                <option value="02:00">02:00</option>
+                                <option value="03:00">03:00</option>
+                                <option value="04:00">04:00</option>
+                                <option value="05:00">05:00</option>
+                                <option value="06:00">06:00</option>
+                                <option value="07:00">07:00</option>
+                                <option value="08:00">08:00</option>
+                                <option value="09:00">09:00</option>
+                                <option value="10:00">10:00</option>
+                                <option value="11:00">11:00</option>
+                                <option value="12:00">12:00</option>
+                                <option value="13:00">13:00</option>
+                                <option value="14:00">14:00</option>
+                                <option value="15:00">15:00</option>
+                                <option value="16:00">16:00</option>
+                                <option value="17:00">17:00</option>
+                                <option value="18:00">18:00</option>
+                                <option value="19:00">19:00</option>
+                                <option value="20:00">20:00</option>
+                                <option value="21:00">21:00</option>
+                                <option value="22:00">22:00</option>
+                                <option value="23:00">23:00</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editPeople" class="form-label">אנשים שמופיעים בקלטת</label>
+                        <textarea id="editPeople" class="form-control" rows="3" placeholder="הזן את שמות האנשים שמופיעים בקלטת, כל שם בשורה חדשה"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editConverter" class="form-label">בוצע על ידי</label>
+                        <input type="text" id="editConverter" class="form-control" placeholder="שם מבצע ההמרה">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">ביטול</button>
+                <button type="button" class="btn btn-primary" onclick="saveTaskChanges()">שמור שינויים</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // בדיקת התחברות
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!localStorage.getItem('isLoggedIn')) {
+                window.location.href = 'login.html';
+            }
+        });
+        
+        // פונקציית התנתקות
+        function logout() {
+            localStorage.removeItem('isLoggedIn');
+            window.location.href = 'login.html';
+        }
+        
+        // פתיחת מודל עריכה
+        function openEditModal(taskId) {
+            document.getElementById('editModal').style.display = 'flex';
+        }
+        
+        // סגירת מודל עריכה
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+        
+        // שמירת שינויים
+        function saveTaskChanges() {
+            // כאן יהיה הקוד לשמירת השינויים
+            closeEditModal();
+            alert('השינויים נשמרו בהצלחה');
+        }
+    </script>
+</body>
+</html>

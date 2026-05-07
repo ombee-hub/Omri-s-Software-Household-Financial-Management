@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת ניהול קלטות - סטטוס עריכה</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --primary-light: #8f7ff7;
+            --primary-dark: #5a49d6;
+            --secondary: #e67e22;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --light: #f5f6fa;
+            --dark: #2d3436;
+            --gray: #b2bec3;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Arial', sans-serif;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+        
+        header {
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            padding: 15px 0;
+        }
+        
+        .logo img {
+            width: 40px;
+            margin-left: 10px;
+        }
+        
+        .logo h1 {
+            color: var(--primary);
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .user-name {
+            font-size: 0.9rem;
+            color: var(--dark);
+        }
+        
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+        }
+        
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background-color: var(--light);
+            color: var(--primary);
+            padding: 8px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: 0.3s;
+        }
+        
+        .logout-btn:hover {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        nav {
+            background-color: white;
+            border-top: 1px solid #eee;
+        }
+        
+        .nav-menu {
+            display: flex;
+            list-style: none;
+        }
+        
+        .nav-item {
+            flex: 1;
+            text-align: center;
+        }
+        
+        .nav-link {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px 10px;
+            color: var(--dark);
+            text-decoration: none;
+            transition: 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .nav-link:hover {
+            background-color: var(--light);
+        }
+        
+        .nav-link.active {
+            color: var(--primary);
+            border-bottom: 3px solid var(--primary);
+            font-weight: 600;
+        }
+        
+        .nav-link i {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+        
+        .page-title {
+            background-color: var(--light);
+            padding: 25px 0;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 30px;
+        }
+        
+        .page-title h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+        
+        .status-section {
+            background-color: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 1.3rem;
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .filter-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .filter-select {
+            padding: 8px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: white;
+            font-size: 0.9rem;
+        }
+        
+        .search-box {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px 0 0 5px;
+            font-size: 0.9rem;
+        }
+        
+        .search-btn {
+            padding: 10px 15px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0 5px 5px 0;
+            cursor: pointer;
+        }
+        
+        .status-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .status-table th, .status-table td {
+            padding: 15px;
+            text-align: right;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .status-table th {
+            background-color: var(--light);
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .status-table tr:hover {
+            background-color: var(--light);
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .badge-success {
+            background-color: var(--success);
+        }
+        
+        .badge-warning {
+            background-color: var(--warning);
+        }
+        
+        .badge-danger {
+            background-color: var(--danger);
+        }
+        
+        .badge-secondary {
+            background-color: var(--secondary);
+        }
+        
+        .badge-primary {
+            background-color: var(--primary);
+        }
+        
+        .badge-gray {
+            background-color: var(--gray);
+        }
+        
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: 0.3s;
+            margin-left: 5px;
+            border: none;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+        
+        .btn-success {
+            background-color: var(--success);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #219653;
+        }
+        
+        .btn-warning {
+            background-color: var(--warning);
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background-color: #e67e22;
+        }
+        
+        .btn-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #d63031;
+        }
+        
+        .btn-icon {
+            margin-left: 5px;
+        }
+        
+        .status-progress {
+            width: 100%;
+            height: 8px;
+            background-color: #eee;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+        
+        .progress-success {
+            background-color: var(--success);
+        }
+        
+        .progress-warning {
+            background-color: var(--warning);
+        }
+        
+        .progress-danger {
+            background-color: var(--danger);
+        }
+        
+        .progress-container {
+            display: flex;
+            align-items: center;
+        }
+        
+        .progress-text {
+            width: 40px;
+            text-align: left;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        
+        .pagination-list {
+            display: flex;
+            list-style: none;
+        }
+        
+        .pagination-item {
+            margin: 0 5px;
+        }
+        
+        .pagination-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 5px;
+            background-color: white;
+            color: var(--dark);
+            text-decoration: none;
+            font-weight: 600;
+            transition: 0.3s;
+            border: 1px solid #eee;
+        }
+        
+        .pagination-link:hover {
+            background-color: var(--light);
+        }
+        
+        .pagination-link.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        .pagination-link.disabled {
+            color: var(--gray);
+            pointer-events: none;
+        }
+        
+        @media (max-width: 992px) {
+            .filter-container {
+                flex-wrap: wrap;
+            }
+            
+            .filter-select {
+                flex: 1;
+                min-width: 120px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .status-table {
+                overflow-x: auto;
+                display: block;
+            }
+            
+            .nav-menu {
+                flex-wrap: wrap;
+            }
+            
+            .nav-item {
+                flex: none;
+                width: 50%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-wrapper">
+                <div class="logo">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICAgIDxyZWN0IHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcng9IjgiIGZpbGw9IiM2YzVjZTciIC8+CiAgICA8cGF0aCBkPSJNMTAgMTVDMTAgMTMuMzQzMSAxMS4zNDMxIDEyIDEzIDEySDE5QzIwLjY1NjkgMTIgMjIgMTMuMzQzMSAyMiAxNVYyNUMyMiAyNi42NTY5IDIwLjY1NjkgMjggMTkgMjhIMTNDMTEuMzQzMSAyOCAxMCAyNi42NTY5IDEwIDI1VjE1WiIgZmlsbD0id2hpdGUiIC8+CiAgICA8cGF0aCBkPSJNMjUgMTJIMjdDMjguNjU2OSAxMiAzMCAxMy4zNDMxIDMwIDE1VjI1QzMwIDI2LjY1NjkgMjguNjU2OSAyOCAyNyAyOEgyNUMyMy4zNDMxIDI4IDIyIDI2LjY1NjkgMjIgMjVWMTVDMjIgMTMuMzQzMSAyMy4zNDMxIDEyIDI1IDEyWiIgZmlsbD0id2hpdGUiIC8+Cjwvc3ZnPg==" alt="לוגו מערכת ניהול קלטות">
+                    <h1>מערכת ניהול קלטות</h1>
+                </div>
+                <div class="user-menu">
+                    <div class="user-info">
+                        <span class="user-name">שלום, משתמש</span>
+                        <img src="/api/placeholder/32/32" alt="תמונת משתמש" class="user-avatar">
+                    </div>
+                    <a href="login.html" class="logout-btn">
+                        <i>🚪</i>
+                        התנתק
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <nav>
+            <div class="container">
+                <ul class="nav-menu">
+                    <li class="nav-item">
+                        <a href="/" class="nav-link">
+                            <i>📊</i>
+                            דאשבורד
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link active">
+                            <i>⚙️</i>
+                            סטטוס עריכה
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <i>📅</i>
+                            יומן משימות
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <i>🎬</i>
+                            פירוט קלטות
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <i>🖼️</i>
+                            גלריה
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+    
+    <div class="page-title">
+        <div class="container">
+            <h2>סטטוס עריכה</h2>
+        </div>
+    </div>
+    
+    <main class="container">
+        <div class="status-section">
+            <div class="section-header">
+                <h3 class="section-title">מעקב אחר סטטוס עריכת הקלטות</h3>
+            </div>
+            
+            <div class="filter-container">
+                <select class="filter-select">
+                    <option value="">כל הסטטוסים</option>
+                    <option value="completed">הושלם</option>
+                    <option value="in-progress">בתהליך עריכה</option>
+                    <option value="pending">ממתין לעריכה</option>
+                    <option value="review">בסקירה</option>
+                    <option value="approval">ממתין לאישור</option>
+                </select>
+                
+                <select class="filter-select">
+                    <option value="">כל העורכים</option>
+                    <option value="editor1">עורך 1</option>
+                    <option value="editor2">עורך 2</option>
+                    <option value="editor3">עורך 3</option>
+                </select>
+                
+                <select class="filter-select">
+                    <option value="">כל התאריכים</option>
+                    <option value="today">היום</option>
+                    <option value="week">השבוע האחרון</option>
+                    <option value="month">החודש האחרון</option>
+                </select>
+            </div>
+            
+            <div class="search-box">
+                <input type="text" class="search-input" placeholder="חפש לפי שם קלטת, תגיות או מזהה...">
+                <button class="search-btn">🔍</button>
+            </div>
+            
+            <table class="status-table">
+                <thead>
+                    <tr>
+                        <th>שם הקלטה</th>
+                        <th>תאריך העלאה</th>
+                        <th>משך</th>
+                        <th>עורך</th>
+                        <th>סטטוס</th>
+                        <th>התקדמות</th>
+                        <th>פעולות</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>הרצאה - מבוא לניהול</td>
+                        <td>01/04/2025</td>
+                        <td>01:45:30</td>
+                        <td>ישראל ישראלי</td>
+                        <td><span class="badge badge-success">הושלם</span></td>
+                        <td>
+                            <div class="progress-container">
+                                <div class="status-progress">
+                                    <div class="progress-bar progress-success" style="width: 100%;"></div>
+                                </div>
+                                <div class="progress-text">100%</div>
+                            </div>
+                        </td>
+                        <td>
+                            <button class="action-btn btn-primary"><i class="btn-icon">👁️</i> צפה</button>
+                            <button class="action-btn btn-success"><i class="btn-icon">✓</i> אשר</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>סיכום פרויקט - רבעון 2</td>
+                        <td>10/04/2025</td>
+                        <td>00:58:15</td>
+                        <td>יעקב לוי</td>
+                        <td><span class="badge badge-warning">בתהליך עריכה</span></td>
+                        <td>
+                            <div class="progress-container">
+                                <div class="status-progress">
+                                    <div class="progress-bar progress-warning" style="width: 65%;"></div>
+                                </div>
+                                <div class="progress-text">65%</div>
+                            </div>
+                        </td>
+                        <td>
+                            <button class="action-btn btn-primary"><i class="btn-icon">👁️</i> צפה</button>
+                            <button class="action-btn btn-warning"><i class="btn-icon">✎</i> עדכון</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>שיווק דיגיטלי - קמפיין חדש</td>
+                        <td>12/04/2025</td>
+                        <td>01:12:45</td>
+                        <td>דינה כהן</td>
+                        <td><span class="badge badge-primary">בסקירה</span></td>
+                        <td>
+                            <div class="progress-container">
+                                <div class="status-progress">
+                                    <div class="progress-bar progress-success" style="width: 90%;"></div>
+                                </div>
+                                <div class="progress-text">90%</div>
+                            </div>
+                        </td>
+                        <td>
+                            <button class="action-btn btn-primary"><i class="btn-icon">👁️</i> צפה</button>
+                            <button class="action-btn btn-warning"><i class="btn-icon">✎</i> עדכון</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>הדרכת עובדים חדשים</td>
+                        <td>15/04/2025</td>
+                        <td>02:30:00</td>
+                        <td>משה אברהם</td>
+                        <td><span class="badge badge-secondary">ממתין לאישור</span></td>
+                        <td>
+                            <div class="progress-container">
+                                <div class="status-progress">
+                                    <div class="progress-bar progress-success" style="width: 100%;"></div>
+                                </div>
+                                <div class="progress-text">100%</div>
+                            </div>
+                        </td>
+                        <td>
+                            <button class="action-btn btn-primary"><i class="btn-icon">👁️</i> צפה</button>
+                            <button class="action-btn btn-success"><i class="btn-icon">✓</i> אשר</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>ישיבת הנהלה - תקציב Q3</td>
+                        <td>18/04/2025</td>
+                        <td>01:30:20</td>
+                        <td>לא הוקצה</td>
+                        <td><span class="badge badge-danger">ממתין לעריכה</span></td>
+                        <td>
+                            <div class="progress-container">
+                                <div class="status-progress">
+                                    <div class="progress-bar progress-danger" style="width: 0%;"></div>
+                                </div>
+                                <div class="progress-text">0%</div>
+                            </div>
+                        </td>
+                        <td>
+                            <button class="action-btn btn-primary"><i class="btn-icon">👁️</i> צפה</button>
+                            <button class="action-btn btn-warning"><i class="btn-icon">✎</i> הקצה</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="pagination">
+                <ul class="pagination-list">
+                    <li class="pagination-item">
+                        <a href="#" class="pagination-link disabled">
+                            ◀
+                        </a>
+                    </li>
+                    <li class="pagination-item">
+                        <a href="#" class="pagination-link active">
+                            1
+                        </a>
+                    </li>
+                    <li class="pagination-item">
+                        <a href="#" class="pagination-link">
+                            2
+                        </a>
+                    </li>
+                    <li class="pagination-item">
+                        <a href="#" class="pagination-link">
+                            3
+                        </a>
+                    </li>
+                    <li class="pagination-item">
+                        <a href="#" class="pagination-link">
+                            ▶
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

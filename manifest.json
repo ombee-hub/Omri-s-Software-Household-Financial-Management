@@ -1,0 +1,22 @@
+{
+    "name": "התוכנה של עמרי",
+    "short_name": "עמרי",
+    "description": "ניהול כלכלי למשק הבית - כרטיסי אשראי, חשבונות, משימות ומסמכים",
+    "start_url": "./index.html",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#f7f9fc",
+    "theme_color": "#1e3a5f",
+    "lang": "he",
+    "dir": "rtl",
+    "categories": ["finance", "productivity", "lifestyle"],
+    "icons": [
+        {
+            "src": "Omri's%20Software%20-%20icon.png",
+            "sizes": "any",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ]
+}

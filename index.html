@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1e3a5f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="התוכנה של עמרי">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="Omri's%20Software%20-%20icon.png">
+    <link rel="icon" type="image/png" href="Omri's%20Software%20-%20icon.png">
+    <title>התוכנה של עמרי - דאשבורד</title>
+    <link rel="stylesheet" href="app.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="appHeader"></div>
+
+    <div class="page-title-bar">
+        <div class="container">
+            <h2>דאשבורד</h2>
+            <div class="subtitle" id="todaySubtitle"></div>
+        </div>
+    </div>
+
+    <main class="container">
+        <div class="stats-grid" id="statsGrid"></div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">חשבונות לתשלום החודש</h3>
+                <a href="bills.html" class="btn btn-outline btn-sm">לכל החשבונות</a>
+            </div>
+            <div id="upcomingBills"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">משימות פתוחות</h3>
+                <a href="tasks.html" class="btn btn-outline btn-sm">לכל המשימות</a>
+            </div>
+            <div id="openTasks"></div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+    <script>
+        document.getElementById('todaySubtitle').textContent =
+            'היום, ' + new Date().toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+        function escapeHtml(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+        }
+
+        function renderStats() {
+            const cards = Cards.all();
+            const bills = Bills.all();
+            const tasks = Tasks.all();
+
+            const totalMonthly = bills.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+            const unpaidThisMonth = bills.filter(b => !Bills.isPaidThisMonth(b)).length;
+            const openTasks = tasks.filter(t => !t.done).length;
+
+            document.getElementById('statsGrid').innerHTML = `
+                <div class="stat-card info">
+                    <div class="stat-icon">${ICONS.card}</div>
+                    <div class="stat-number">${cards.length}</div>
+                    <div class="stat-title">כרטיסי אשראי</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><img src="israel_nis.png" alt="₪" style="width:22px;height:22px;object-fit:contain"></div>
+                    <div class="stat-number">${fmtCurrency(totalMonthly)}</div>
+                    <div class="stat-title">סך חשבונות חודשי</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-icon">${ICONS.clock}</div>
+                    <div class="stat-number">${unpaidThisMonth}</div>
+                    <div class="stat-title">חשבונות לא שולמו החודש</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-icon">${ICONS.task}</div>
+                    <div class="stat-number">${openTasks}</div>
+                    <div class="stat-title">משימות פתוחות</div>
+                </div>`;
+        }
+
+        function renderUpcomingBills() {
+            const bills = Bills.all();
+            const container = document.getElementById('upcomingBills');
+
+            if (bills.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">${ICONS.bill}</div>
+                        <h3>אין חשבונות עדיין</h3>
+                        <p>הוסף חשבונות בעמוד "חשבונות" כדי להתחיל לעקוב</p>
+                    </div>`;
+                return;
+            }
+
+            const sorted = [...bills].sort((a, b) => (a.dueDay || 31) - (b.dueDay || 31));
+            container.innerHTML = `
+                <table class="data-table">
+                    <thead><tr><th>חשבון</th><th>קטגוריה</th><th>סכום</th><th>יום בחודש</th><th>סטטוס</th></tr></thead>
+                    <tbody>
+                        ${sorted.map(b => {
+                            const cat = getBillCategory(b.category);
+                            const paid = Bills.isPaidThisMonth(b);
+                            return `<tr>
+                                <td><strong>${escapeHtml(b.name)}</strong></td>
+                                <td>${cat.label}</td>
+                                <td>${fmtCurrency(b.amount)}</td>
+                                <td>${b.dueDay ? b.dueDay + ' לחודש' : '—'}</td>
+                                <td>${paid
+                                    ? '<span class="badge badge-success">שולם</span>'
+                                    : '<span class="badge badge-warning">ממתין</span>'}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>`;
+        }
+
+        function renderOpenTasks() {
+            const tasks = Tasks.all().filter(t => !t.done);
+            const container = document.getElementById('openTasks');
+
+            if (tasks.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">${ICONS.check}</div>
+                        <h3>אין משימות פתוחות</h3>
+                        <p>כל הכבוד! אין מה לעשות</p>
+                    </div>`;
+                return;
+            }
+
+            const sorted = [...tasks].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+            container.innerHTML = `
+                <table class="data-table">
+                    <thead><tr><th>משימה</th><th>תאריך</th><th>עדיפות</th></tr></thead>
+                    <tbody>
+                        ${sorted.map(t => {
+                            const pri = t.priority === 'high' ? '<span class="badge badge-danger">גבוהה</span>'
+                                      : t.priority === 'medium' ? '<span class="badge badge-warning">בינונית</span>'
+                                      : '<span class="badge badge-gray">רגילה</span>';
+                            return `<tr>
+                                <td><strong>${escapeHtml(t.title)}</strong>${t.notes ? '<br><small style="color:var(--gray-dark)">' + escapeHtml(t.notes) + '</small>' : ''}</td>
+                                <td>${fmtDate(t.date)}</td>
+                                <td>${pri}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>`;
+        }
+
+        renderStats();
+        renderUpcomingBills();
+        renderOpenTasks();
+    </script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>דוגמה לשימוש - הסתרת הודעת ברוכים הבאים</title>
+    <!-- כלול את קובץ ה-JavaScript -->
+    <script src="hideWelcomeMessage.js"></script>
+</head>
+<body>
+    <div style="padding: 20px; max-width: 800px; margin: 0 auto; font-family: Arial, sans-serif;">
+        <h1>הוראות שימוש בקובץ JavaScript להסתרת ההודעה</h1>
+        
+        <h2>אפשרות 1: הוספת הקובץ לדף</h2>
+        <p>העתק את קובץ <code>hideWelcomeMessage.js</code> לתיקיית ה-JavaScript של האתר, ואז הוסף את השורה הבאה בראש הדף HTML:</p>
+        <pre style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; direction: ltr; text-align: left;">
+&lt;script src="hideWelcomeMessage.js"&gt;&lt;/script&gt;
+        </pre>
+        
+        <h2>אפשרות 2: הוספת קוד ישירות לדף</h2>
+        <p>אם אין לך אפשרות להוסיף קובץ חדש, תוכל להעתיק את תוכן הקובץ לתוך תגית script בדף:</p>
+        <pre style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; direction: ltr; text-align: left;">
+&lt;script&gt;
+  // העתק לכאן את כל תוכן הקובץ hideWelcomeMessage.js
+&lt;/script&gt;
+        </pre>
+        
+        <h2>אפשרות 3: שימוש בתוסף דפדפן</h2>
+        <p>אם אין לך גישה לקוד האתר, תוכל להשתמש בתוסף דפדפן שמאפשר הזרקת JavaScript:</p>
+        <ol>
+            <li>התקן תוסף כמו "Tampermonkey" או "Greasemonkey"</li>
+            <li>צור סקריפט חדש</li>
+            <li>הגדר אותו לפעול באתר המערכת שלך</li>
+            <li>העתק לשם את תוכן הקובץ hideWelcomeMessage.js</li>
+        </ol>
+        
+        <h2>מבנה התיקייה המומלץ</h2>
+        <pre style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; direction: ltr; text-align: left;">
+/js
+  /utils
+    hideWelcomeMessage.js  <-- הקובץ שיצרנו
+  main.js
+/css
+  style.css
+index.html  <-- כאן תוסיף את תג ה-script
+        </pre>
+        
+        <h2>התאמות אפשריות</h2>
+        <p>אם הקוד לא עובד באופן מידי, יתכן שתצטרך להתאים אותו למבנה הספציפי של האתר שלך:</p>
+        <ol>
+            <li>פתח את כלי המפתח בדפדפן ובדוק את מבנה ה-HTML של ההודעה</li>
+            <li>זהה את הסלקטור המדויק של האלמנט (מחלקה או ID)</li>
+            <li>עדכן את הקוד בהתאם לסלקטורים המדויקים</li>
+        </ol>
+    </div>
+</body>
+</html>

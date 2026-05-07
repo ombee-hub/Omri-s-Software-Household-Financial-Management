@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1e3a5f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="התוכנה של עמרי">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="Omri's%20Software%20-%20icon.png">
+    <link rel="icon" type="image/png" href="Omri's%20Software%20-%20icon.png">
+    <title>התוכנה של עמרי - חשבונות</title>
+    <link rel="stylesheet" href="app.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="appHeader"></div>
+
+    <div class="page-title-bar">
+        <div class="container">
+            <h2>חשבונות הבית</h2>
+            <div class="subtitle">חשמל, מים, ארנונה, אינטרנט וכל ההוצאות הקבועות</div>
+        </div>
+    </div>
+
+    <main class="container">
+        <div class="stats-grid" id="billStats"></div>
+
+        <div class="toolbar">
+            <select id="filterCategory" class="form-select" style="max-width:220px" onchange="render()">
+                <option value="">כל הקטגוריות</option>
+            </select>
+            <button class="btn btn-primary" onclick="openBillModal()" id="addBillBtn">הוסף חשבון</button>
+        </div>
+
+        <div class="card">
+            <div id="billsContainer"></div>
+        </div>
+    </main>
+
+    <div class="modal-backdrop" id="billModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="billModalTitle">הוסף חשבון</div>
+                <button class="modal-close" onclick="closeModal('billModal')" id="closeBtn"></button>
+            </div>
+            <form id="billForm" onsubmit="saveBill(event)">
+                <input type="hidden" id="billId">
+
+                <div class="form-group">
+                    <label class="form-label">שם החשבון <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="billName" class="form-input" placeholder="חשמל - חברת חשמל" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">קטגוריה</label>
+                        <select id="billCategory" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">סכום חודשי (₪) <span style="color:var(--danger)">*</span></label>
+                        <input type="number" id="billAmount" class="form-input" min="0" step="0.01" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">יום תשלום בחודש</label>
+                        <input type="number" id="billDueDay" class="form-input" min="1" max="31" placeholder="10">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">כרטיס לחיוב</label>
+                        <select id="billCardId" class="form-select">
+                            <option value="">ללא / מזומן</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">הערות</label>
+                    <textarea id="billNotes" class="form-textarea"></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">שמור</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('billModal')">בטל</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        document.getElementById('addBillBtn').innerHTML = ICONS.plus + '<span>הוסף חשבון</span>';
+        document.getElementById('closeBtn').innerHTML = ICONS.close;
+
+        const catSelect = document.getElementById('billCategory');
+        const filterSelect = document.getElementById('filterCategory');
+        BILL_CATEGORIES.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.value; opt.textContent = c.label;
+            catSelect.appendChild(opt);
+            filterSelect.appendChild(opt.cloneNode(true));
+        });
+
+        function refreshCards() {
+            const sel = document.getElementById('billCardId');
+            const current = sel.value;
+            sel.innerHTML = '<option value="">ללא / מזומן</option>';
+            Cards.all().forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = (c.nickname || c.bank || 'כרטיס') + (c.last4 ? ' (••' + c.last4 + ')' : '');
+                sel.appendChild(opt);
+            });
+            sel.value = current;
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+        }
+
+        function renderStats() {
+            const bills = Bills.all();
+            const total = bills.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+            const paid = bills.filter(b => Bills.isPaidThisMonth(b));
+            const unpaid = bills.filter(b => !Bills.isPaidThisMonth(b));
+            const paidSum = paid.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+            const unpaidSum = unpaid.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+
+            document.getElementById('billStats').innerHTML = `
+                <div class="stat-card info">
+                    <div class="stat-icon">${ICONS.chart}</div>
+                    <div class="stat-number">${fmtCurrency(total)}</div>
+                    <div class="stat-title">סך חודשי</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-icon">${ICONS.check}</div>
+                    <div class="stat-number">${fmtCurrency(paidSum)}</div>
+                    <div class="stat-title">שולם החודש</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-icon">${ICONS.clock}</div>
+                    <div class="stat-number">${fmtCurrency(unpaidSum)}</div>
+                    <div class="stat-title">לתשלום החודש</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">${ICONS.bill}</div>
+                    <div class="stat-number">${bills.length}</div>
+                    <div class="stat-title">סה"כ חשבונות</div>
+                </div>`;
+        }
+
+        function render() {
+            renderStats();
+            refreshCards();
+
+            const filter = filterSelect.value;
+            let bills = Bills.all();
+            if (filter) bills = bills.filter(b => b.category === filter);
+
+            const container = document.getElementById('billsContainer');
+            if (bills.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">${ICONS.bill}</div>
+                        <h3>אין חשבונות</h3>
+                        <p>לחץ על "הוסף חשבון" כדי להתחיל</p>
+                    </div>`;
+                return;
+            }
+
+            const sorted = [...bills].sort((a, b) => (a.dueDay || 31) - (b.dueDay || 31));
+            container.innerHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr><th>חשבון</th><th>קטגוריה</th><th>סכום</th><th>יום</th><th>כרטיס</th><th>סטטוס החודש</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        ${sorted.map(b => {
+                            const cat = getBillCategory(b.category);
+                            const card = b.cardId ? Cards.findById(b.cardId) : null;
+                            const cardLabel = card ? (card.nickname || card.bank || 'כרטיס') + (card.last4 ? ' ••' + card.last4 : '') : '—';
+                            const paid = Bills.isPaidThisMonth(b);
+                            return `<tr>
+                                <td><strong>${escapeHtml(b.name)}</strong>${b.notes ? '<br><small style="color:var(--gray-dark)">' + escapeHtml(b.notes) + '</small>' : ''}</td>
+                                <td>${cat.label}</td>
+                                <td>${fmtCurrency(b.amount)}</td>
+                                <td>${b.dueDay || '—'}</td>
+                                <td>${escapeHtml(cardLabel)}</td>
+                                <td>
+                                    <button class="btn btn-sm ${paid ? 'btn-success' : 'btn-outline'}" onclick="togglePaid('${b.id}')">
+                                        ${paid ? 'שולם' : 'לא שולם'}
+                                    </button>
+                                </td>
+                                <td class="actions">
+                                    <button class="btn-icon" onclick="openBillModal('${b.id}')" title="ערוך">${ICONS.edit}</button>
+                                    <button class="btn-icon danger" onclick="deleteBill('${b.id}', '${escapeHtml(b.name)}')" title="מחק">${ICONS.trash}</button>
+                                </td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>`;
+        }
+
+        function openBillModal(id) {
+            document.getElementById('billForm').reset();
+            document.getElementById('billId').value = '';
+            document.getElementById('billModalTitle').textContent = 'הוסף חשבון';
+            refreshCards();
+
+            if (id) {
+                const list = Bills.all();
+                const b = list.find(x => x.id === id);
+                if (b) {
+                    document.getElementById('billId').value = b.id;
+                    document.getElementById('billName').value = b.name || '';
+                    document.getElementById('billCategory').value = b.category || '';
+                    document.getElementById('billAmount').value = b.amount || '';
+                    document.getElementById('billDueDay').value = b.dueDay || '';
+                    document.getElementById('billCardId').value = b.cardId || '';
+                    document.getElementById('billNotes').value = b.notes || '';
+                    document.getElementById('billModalTitle').textContent = 'עריכת חשבון';
+                }
+            }
+            openModal('billModal');
+        }
+
+        function saveBill(e) {
+            e.preventDefault();
+            const id = document.getElementById('billId').value;
+            const data = {
+                name: document.getElementById('billName').value.trim(),
+                category: document.getElementById('billCategory').value,
+                amount: Number(document.getElementById('billAmount').value) || 0,
+                dueDay: Number(document.getElementById('billDueDay').value) || null,
+                cardId: document.getElementById('billCardId').value || null,
+                notes: document.getElementById('billNotes').value.trim(),
+            };
+            if (id) Bills.update(id, data);
+            else Bills.add(data);
+            closeModal('billModal');
+            render();
+        }
+
+        function togglePaid(id) {
+            Bills.togglePaid(id, currentYM());
+            render();
+        }
+
+        function deleteBill(id, name) {
+            if (confirmDelete(name)) {
+                Bills.remove(id);
+                render();
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>
