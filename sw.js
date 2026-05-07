@@ -1,8 +1,8 @@
 // התוכנה של עמרי - Service Worker
-// Caches static assets only. Firebase API calls (Firestore/Auth) bypass the
-// cache and go to the network so data is always live.
+// Network-first for HTML/JS/CSS so updates always win.
+// Cache-first only for images and the SDK CDNs.
 
-const CACHE_NAME = 'omri-app-v3';
+const CACHE_NAME = 'omri-app-v4';
 const STATIC_ASSETS = [
     './',
     './index.html',
@@ -44,15 +44,32 @@ self.addEventListener('fetch', (event) => {
 
     const url = new URL(event.request.url);
 
-    // Bypass cache for Firebase APIs - always go to network for live data
+    // Bypass cache entirely for Firebase APIs
     if (url.hostname.includes('firebase') ||
         url.hostname.includes('firestore') ||
         url.hostname.includes('googleapis.com') ||
-        url.hostname.includes('gstatic.com')) {
-        // Network only for Firebase + Firebase SDK CDN
+        url.hostname.includes('gstatic.com') ||
+        url.hostname.includes('sheetjs.com')) {
+        return; // network only
+    }
+
+    // For our own HTML/JS/CSS - network-first so updates always apply,
+    // fall back to cache only if offline
+    const isCodeFile = /\.(html|js|css|json)$/i.test(url.pathname) || url.pathname.endsWith('/');
+    if (isCodeFile) {
+        event.respondWith(
+            fetch(event.request).then((response) => {
+                if (response && response.status === 200) {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then((c) => c.put(event.request, clone)).catch(() => {});
+                }
+                return response;
+            }).catch(() => caches.match(event.request).then(c => c || caches.match('./index.html')))
+        );
         return;
     }
 
+    // Images and other static assets - cache-first
     event.respondWith(
         caches.match(event.request).then((cached) => {
             if (cached) return cached;
@@ -62,10 +79,6 @@ self.addEventListener('fetch', (event) => {
                     caches.open(CACHE_NAME).then((c) => c.put(event.request, clone)).catch(() => {});
                 }
                 return response;
-            }).catch(() => {
-                if (event.request.mode === 'navigate') {
-                    return caches.match('./index.html');
-                }
             });
         })
     );
