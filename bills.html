@@ -17,6 +17,71 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="firebase-init.js"></script>
+    <style>
+        .file-drop-zone {
+            border: 2px dashed var(--border);
+            background: var(--light-2);
+            border-radius: var(--radius-sm);
+            padding: 18px;
+            text-align: center;
+            cursor: pointer;
+            color: var(--gray-dark);
+            transition: 0.2s;
+            font-size: 0.9rem;
+        }
+        .file-drop-zone:hover { border-color: var(--primary); color: var(--primary); }
+        .file-drop-zone.has-file {
+            background: rgba(67, 160, 71, 0.06);
+            border-color: var(--secondary);
+            color: var(--dark);
+            text-align: right;
+        }
+        .file-drop-zone svg { width: 24px; height: 24px; vertical-align: middle; margin-left: 6px; }
+
+        .file-preview {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: var(--light-2);
+            border-radius: var(--radius-sm);
+            margin-top: 8px;
+        }
+        .file-preview img { max-width: 60px; max-height: 60px; border-radius: 4px; }
+        .file-preview .file-info { flex: 1; }
+        .file-preview .file-name { font-weight: 600; font-size: 0.9rem; }
+        .file-preview .file-size { font-size: 0.82rem; color: var(--gray-dark); }
+
+        .lightbox {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            display: none; align-items: center; justify-content: center;
+            z-index: 2000; padding: 20px;
+        }
+        .lightbox.show { display: flex; }
+        .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .lightbox-close {
+            position: absolute; top: 20px; left: 20px;
+            background: white; border: none; border-radius: 50%;
+            width: 44px; height: 44px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .file-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: var(--light);
+            border-radius: 999px;
+            font-size: 0.78rem;
+            color: var(--primary);
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+        }
+        .file-pill:hover { background: var(--primary); color: white; }
+        .file-pill svg { width: 12px; height: 12px; }
+    </style>
 </head>
 <body>
     <div id="appHeader"></div>
@@ -24,7 +89,7 @@
     <div class="page-title-bar">
         <div class="container">
             <h2>חשבונות הבית</h2>
-            <div class="subtitle">חשמל, מים, ארנונה, אינטרנט וכל ההוצאות הקבועות</div>
+            <div class="subtitle">חשמל, מים, ארנונה, אינטרנט וכל ההוצאות הקבועות. אפשר לצרף קבלה/חשבונית לכל חשבון.</div>
         </div>
     </div>
 
@@ -78,22 +143,41 @@
                 </div>
 
                 <div class="form-group">
+                    <label class="form-label">קבלה / חשבונית (תמונה / PDF)</label>
+                    <div class="file-drop-zone" id="billDropZone" onclick="document.getElementById('billFileInput').click()">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <span id="billDropZoneText">גרור תמונה / PDF, או לחץ לבחירה (אופציונלי)</span>
+                    </div>
+                    <input type="file" id="billFileInput" style="display:none" accept="image/*,.pdf,application/pdf" onchange="handleBillFile(event)">
+                    <div id="billFilePreview" style="display:none"></div>
+                </div>
+
+                <div class="form-group">
                     <label class="form-label">הערות</label>
                     <textarea id="billNotes" class="form-textarea"></textarea>
                 </div>
 
+                <div id="billSaveError" style="color:var(--danger);font-size:0.9rem;margin-bottom:10px;display:none"></div>
+
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">שמור</button>
+                    <button type="submit" class="btn btn-primary" id="saveBillBtn">שמור</button>
                     <button type="button" class="btn btn-outline" onclick="closeModal('billModal')">בטל</button>
                 </div>
             </form>
         </div>
     </div>
 
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <button class="lightbox-close" onclick="closeLightbox()" id="lightboxCloseBtn"></button>
+        <img id="lightboxImg" src="" alt="">
+    </div>
+
     <script src="app.js"></script>
     <script>
         document.getElementById('addBillBtn').innerHTML = ICONS.plus + '<span>הוסף חשבון</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
+        document.getElementById('lightboxCloseBtn').innerHTML = ICONS.close;
 
         const catSelect = document.getElementById('billCategory');
         const filterSelect = document.getElementById('filterCategory');
@@ -105,9 +189,17 @@
         });
 
         let billsData = [];
+        let currentBillFile = null; // { dataUrl, type, name, size }
 
         function escapeHtml(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+        }
+
+        function fmtSize(bytes) {
+            if (!bytes) return '';
+            const kb = bytes / 1024;
+            if (kb < 1024) return kb.toFixed(0) + ' KB';
+            return (kb / 1024).toFixed(1) + ' MB';
         }
 
         function render() {
@@ -130,19 +222,25 @@
             container.innerHTML = `
                 <table class="data-table">
                     <thead>
-                        <tr><th>חשבון</th><th>קטגוריה</th><th>סכום</th><th>יום</th><th>כרטיס</th><th>סטטוס החודש</th><th></th></tr>
+                        <tr><th>חשבון</th><th>קטגוריה</th><th>סכום</th><th>יום</th><th>אמצעי תשלום</th><th>קובץ</th><th>סטטוס</th><th></th></tr>
                     </thead>
                     <tbody>
                         ${sorted.map(b => {
                             const cat = getBillCategory(b.category);
                             const cardLabel = b.cardName || '—';
                             const paid = Bills.isPaidThisMonth(b);
+                            const fileBtn = b.fileData ? (
+                                b.fileType === 'application/pdf'
+                                    ? `<button class="file-pill" onclick="downloadBillFile('${b.id}')" title="הורד PDF">📄 PDF</button>`
+                                    : `<button class="file-pill" onclick="openLightbox('${b.id}')" title="הצג תמונה">🖼️ תמונה</button>`
+                            ) : '—';
                             return `<tr>
                                 <td><strong>${escapeHtml(b.name)}</strong>${b.notes ? '<br><small style="color:var(--gray-dark)">' + escapeHtml(b.notes) + '</small>' : ''}</td>
                                 <td>${cat.label}</td>
                                 <td>${fmtCurrency(b.amount)}</td>
                                 <td>${b.dueDay || '—'}</td>
                                 <td>${escapeHtml(cardLabel)}</td>
+                                <td>${fileBtn}</td>
                                 <td>
                                     <button class="btn btn-sm ${paid ? 'btn-success' : 'btn-outline'}" onclick="togglePaid('${b.id}')">
                                         ${paid ? 'שולם' : 'לא שולם'}
@@ -158,10 +256,165 @@
                 </table>`;
         }
 
+        // ===== File handling =====
+
+        async function handleBillFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            await processBillFile(file);
+            e.target.value = '';
+        }
+
+        async function processBillFile(file) {
+            const errEl = document.getElementById('billSaveError');
+            errEl.style.display = 'none';
+
+            try {
+                if (file.type.startsWith('image/')) {
+                    const compressed = await compressImage(file, 1400, 0.78);
+                    currentBillFile = {
+                        dataUrl: compressed.dataUrl,
+                        type: 'image/jpeg',
+                        name: file.name,
+                        size: compressed.size,
+                    };
+                } else if (file.type === 'application/pdf') {
+                    if (file.size > 800 * 1024) {
+                        throw new Error('PDF גדול מדי - עד 800KB');
+                    }
+                    const dataUrl = await new Promise((resolve, reject) => {
+                        const r = new FileReader();
+                        r.onload = (ev) => resolve(ev.target.result);
+                        r.onerror = reject;
+                        r.readAsDataURL(file);
+                    });
+                    currentBillFile = { dataUrl, type: 'application/pdf', name: file.name, size: file.size };
+                } else {
+                    throw new Error('סוג קובץ לא נתמך - רק תמונות או PDF');
+                }
+                renderBillFilePreview();
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.style.display = 'block';
+            }
+        }
+
+        function renderBillFilePreview() {
+            const dropZone = document.getElementById('billDropZone');
+            const dropText = document.getElementById('billDropZoneText');
+            const previewEl = document.getElementById('billFilePreview');
+
+            if (!currentBillFile) {
+                dropZone.classList.remove('has-file');
+                dropText.textContent = 'גרור תמונה / PDF, או לחץ לבחירה (אופציונלי)';
+                previewEl.style.display = 'none';
+                previewEl.innerHTML = '';
+                return;
+            }
+
+            dropZone.classList.add('has-file');
+            dropText.textContent = '✓ קובץ נבחר';
+
+            const isImg = currentBillFile.type.startsWith('image/');
+            previewEl.style.display = 'block';
+            previewEl.innerHTML = `
+                <div class="file-preview">
+                    ${isImg ? `<img src="${currentBillFile.dataUrl}" alt="">` : `<div style="font-size:2rem">📄</div>`}
+                    <div class="file-info">
+                        <div class="file-name">${escapeHtml(currentBillFile.name)}</div>
+                        <div class="file-size">${fmtSize(currentBillFile.size)}</div>
+                    </div>
+                    <button type="button" class="btn-icon" onclick="removeBillFile()" title="הסר">${ICONS.trash}</button>
+                </div>`;
+        }
+
+        function removeBillFile() {
+            currentBillFile = null;
+            renderBillFilePreview();
+        }
+
+        function compressImage(file, maxDim, quality) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        let { width, height } = img;
+                        if (width > maxDim || height > maxDim) {
+                            if (width > height) {
+                                height = Math.round(height * maxDim / width);
+                                width = maxDim;
+                            } else {
+                                width = Math.round(width * maxDim / height);
+                                height = maxDim;
+                            }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        const size = Math.round((dataUrl.length * 3) / 4);
+                        resolve({ dataUrl, size });
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Drag-drop on bill drop zone
+        (function wireBillDrop() {
+            const z = document.getElementById('billDropZone');
+            ['dragenter', 'dragover'].forEach(e => z.addEventListener(e, ev => {
+                ev.preventDefault(); ev.stopPropagation();
+                z.style.borderColor = 'var(--primary)';
+            }));
+            ['dragleave', 'drop'].forEach(e => z.addEventListener(e, ev => {
+                ev.preventDefault(); ev.stopPropagation();
+                z.style.borderColor = '';
+            }));
+            z.addEventListener('drop', (ev) => {
+                if (ev.dataTransfer.files && ev.dataTransfer.files[0]) {
+                    processBillFile(ev.dataTransfer.files[0]);
+                }
+            });
+        })();
+
+        // ===== Lightbox / download =====
+
+        function openLightbox(id) {
+            const b = billsData.find(x => x.id === id);
+            if (!b || !b.fileData) return;
+            document.getElementById('lightboxImg').src = b.fileData;
+            document.getElementById('lightbox').classList.add('show');
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('show');
+        }
+
+        function downloadBillFile(id) {
+            const b = billsData.find(x => x.id === id);
+            if (!b || !b.fileData) return;
+            const a = document.createElement('a');
+            a.href = b.fileData;
+            a.download = b.fileName || (b.name + '.pdf');
+            a.click();
+        }
+
+        // ===== Modal CRUD =====
+
         async function openBillModal(id) {
             document.getElementById('billForm').reset();
             document.getElementById('billId').value = '';
             document.getElementById('billModalTitle').textContent = 'הוסף חשבון';
+            document.getElementById('billSaveError').style.display = 'none';
+            currentBillFile = null;
+            renderBillFilePreview();
 
             if (id) {
                 const b = await Bills.findById(id);
@@ -174,6 +427,15 @@
                     document.getElementById('billCardName').value = b.cardName || '';
                     document.getElementById('billNotes').value = b.notes || '';
                     document.getElementById('billModalTitle').textContent = 'עריכת חשבון';
+                    if (b.fileData) {
+                        currentBillFile = {
+                            dataUrl: b.fileData,
+                            type: b.fileType,
+                            name: b.fileName || 'קובץ',
+                            size: b.fileSize || 0,
+                        };
+                        renderBillFilePreview();
+                    }
                 }
             }
             openModal('billModal');
@@ -181,6 +443,8 @@
 
         async function saveBill(e) {
             e.preventDefault();
+            const errEl = document.getElementById('billSaveError');
+            errEl.style.display = 'none';
             const id = document.getElementById('billId').value;
             const data = {
                 name: document.getElementById('billName').value.trim(),
@@ -189,13 +453,24 @@
                 dueDay: Number(document.getElementById('billDueDay').value) || null,
                 cardName: document.getElementById('billCardName').value.trim() || null,
                 notes: document.getElementById('billNotes').value.trim(),
+                fileData: currentBillFile ? currentBillFile.dataUrl : null,
+                fileType: currentBillFile ? currentBillFile.type : null,
+                fileName: currentBillFile ? currentBillFile.name : null,
+                fileSize: currentBillFile ? currentBillFile.size : null,
             };
+            const btn = document.getElementById('saveBillBtn');
+            btn.disabled = true;
+            btn.textContent = 'שומר...';
             try {
                 if (id) await Bills.update(id, data);
                 else await Bills.add(data);
                 closeModal('billModal');
             } catch (err) {
-                alert('שגיאה בשמירה: ' + err.message);
+                errEl.textContent = 'שגיאה בשמירה: ' + err.message;
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'שמור';
             }
         }
 

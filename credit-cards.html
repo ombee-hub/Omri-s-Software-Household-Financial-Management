@@ -108,8 +108,8 @@
         <!-- LIST VIEW -->
         <div id="listView">
             <div class="toolbar">
-                <div></div>
-                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" id="uploadBtn">העלה דף אשראי</button>
+                <div style="color:var(--gray-dark);font-size:0.88rem">תומך ב-Excel (חילוץ עסקאות אוטומטי) או PDF</div>
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" id="uploadBtn">העלה אקסל / PDF</button>
                 <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls,.csv,.pdf,application/pdf" onchange="handleFileSelected(event)">
             </div>
 
@@ -200,7 +200,7 @@
 
     <script src="app.js"></script>
     <script>
-        document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה דף אשראי</span>';
+        document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
         document.getElementById('backBtn').innerHTML = ICONS.arrowLeft + '<span>חזרה לרשימה</span>';
 
