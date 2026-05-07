@@ -212,12 +212,56 @@ auth.onAuthStateChanged((user) => {
     // On non-login pages, mount header (which depends on currentUser)
     if (!isLoginPage) {
         mountHeader();
+        // Save/update user doc in Firestore so other users can see this user
+        if (user) ensureUserDoc(user);
         // Notify app that auth is ready
         document.dispatchEvent(new CustomEvent('auth:ready', { detail: { user } }));
     }
     // Hide the splash screen now that we know the auth state
     hideSplash();
 });
+
+// ===== Save / update the current user's profile in Firestore on login =====
+async function ensureUserDoc(user) {
+    if (!user) return;
+    try {
+        const ref = db.collection('users').doc(user.uid);
+        const snap = await ref.get();
+        const update = {
+            uid: user.uid,
+            email: user.email,
+            lastLoginAt: firebase.firestore.FieldValue.serverTimestamp(),
+        };
+        if (!snap.exists) {
+            update.displayName = getDisplayName(user);
+            update.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            await ref.set(update);
+        } else {
+            await ref.update(update);
+        }
+    } catch (e) {
+        console.warn('ensureUserDoc failed', e);
+    }
+}
+
+// Helper accessor for users collection
+const Profiles = {
+    subscribe(callback) {
+        return db.collection('users').onSnapshot(
+            (snap) => {
+                const items = [];
+                snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+                callback(items);
+            },
+            (err) => { console.error('users listener error', err); callback([]); }
+        );
+    },
+    async updateMyDisplayName(uid, displayName) {
+        await db.collection('users').doc(uid).update({ displayName });
+        // Also update Firebase Auth profile so it persists across the app
+        try { await auth.currentUser?.updateProfile({ displayName }); } catch (e) {}
+    },
+};
 
 // Fallback: hide splash after 3s even if auth never resolves (offline w/ no cache)
 setTimeout(() => hideSplash(), 3000);
