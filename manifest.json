@@ -13,7 +13,7 @@
     "categories": ["finance", "productivity", "lifestyle"],
     "icons": [
         {
-            "src": "Omri's%20Software%20-%20icon.png",
+            "src": "images/Omri's%20Software%20-%20icon.png",
             "sizes": "any",
             "type": "image/png",
             "purpose": "any"

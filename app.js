@@ -1,8 +1,8 @@
 // התוכנה של עמרי - Application JavaScript (Firebase backend)
 // Requires firebase-init.js to be loaded first (auth + db globals)
 
-const LOGO_PATH = "Omri's%20Software%20%E2%80%93%20Household%20Financial%20Management.png";
-const SPLASH_LOGO_PATH = "Omri's%20Software%20%E2%80%93%20Logo.png";
+const LOGO_PATH = "images/Omri's%20Software%20%E2%80%93%20Household%20Financial%20Management.png";
+const SPLASH_LOGO_PATH = "images/Omri's%20Software%20%E2%80%93%20Logo.png";
 
 // ===== Splash screen - shows ONLY on the first page load of a session =====
 const SPLASH_KEY = 'omri_splash_shown';

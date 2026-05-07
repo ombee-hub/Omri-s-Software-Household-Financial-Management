@@ -2,7 +2,7 @@
 // Network-first for HTML/JS/CSS so updates always win.
 // Cache-first only for images and the SDK CDNs.
 
-const CACHE_NAME = 'omri-app-v15';
+const CACHE_NAME = 'omri-app-v16';
 const STATIC_ASSETS = [
     './',
     './index.html',
@@ -16,10 +16,10 @@ const STATIC_ASSETS = [
     './app.js',
     './firebase-init.js',
     './manifest.json',
-    "./Omri's%20Software%20%E2%80%93%20Household%20Financial%20Management.png",
-    "./Omri's%20Software%20-%20icon.png",
-    "./Omri's%20Software%20%E2%80%93%20Logo.png",
-    './israel_nis.png',
+    "./images/Omri's%20Software%20%E2%80%93%20Household%20Financial%20Management.png",
+    "./images/Omri's%20Software%20-%20icon.png",
+    "./images/Omri's%20Software%20%E2%80%93%20Logo.png",
+    './images/israel_nis.png',
 ];
 
 self.addEventListener('install', (event) => {
