@@ -196,13 +196,13 @@
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" onclick="saveStatement()" id="saveStmtBtn">שמור דף אשראי</button>
-                    <button type="button" class="btn btn-outline" onclick="closeUploadModal()">בטל</button>
+                    <button type="button" class="btn btn-outline" onclick="closeUploadModal()">ביטול</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="app.js?v=17"></script>
+    <script src="app.js?v=18"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -682,7 +682,7 @@
                 errEl.style.display = 'block';
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'שמור דף אשראי';
+                btn.textContent = 'שמירת דף אשראי';
             }
         }
 
