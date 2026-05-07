@@ -740,9 +740,9 @@ main { padding-bottom: 60px; }
 .splash {
     position: fixed;
     inset: 0;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -760,7 +760,7 @@ main { padding-bottom: 60px; }
     width: 200px;
     height: auto;
     animation: splash-spin 1.6s linear infinite;
-    filter: drop-shadow(0 6px 20px rgba(30, 58, 95, 0.18));
+    filter: drop-shadow(0 8px 28px rgba(30, 58, 95, 0.35));
 }
 
 @keyframes splash-spin {
