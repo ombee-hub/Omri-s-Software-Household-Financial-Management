@@ -204,6 +204,12 @@
                         <div class="user-email">${escapeHtml(u.email || '')}</div>
                         ${lastLogin ? `<div class="user-meta">כניסה אחרונה: ${escapeHtml(lastLogin)}</div>` : ''}
                     </div>
+                    ${isMe ? `
+                        <div class="user-actions">
+                            <button class="btn-icon" onclick="openModal('displayNameModal')" title="שנה שם תצוגה">${ICONS.edit}</button>
+                            <button class="btn-icon" onclick="openModal('passwordModal')" title="שנה סיסמה">🔒</button>
+                        </div>
+                    ` : ''}
                 </div>`;
             }).join('');
         }
