@@ -68,7 +68,9 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 10px;
+            direction: ltr; /* operators on right, numbers on left like a standard calculator */
         }
+        .calc-display { direction: ltr; }
 
         .calc-btn {
             border: none;
