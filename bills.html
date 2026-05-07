@@ -29,8 +29,6 @@
     </div>
 
     <main class="container">
-        <div class="stats-grid" id="billStats"></div>
-
         <div class="toolbar">
             <select id="filterCategory" class="form-select" style="max-width:220px" onchange="render()">
                 <option value="">כל הקטגוריות</option>
@@ -112,39 +110,7 @@
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
         }
 
-        function renderStats() {
-            const total = billsData.reduce((s, b) => s + (Number(b.amount) || 0), 0);
-            const paid = billsData.filter(b => Bills.isPaidThisMonth(b));
-            const unpaid = billsData.filter(b => !Bills.isPaidThisMonth(b));
-            const paidSum = paid.reduce((s, b) => s + (Number(b.amount) || 0), 0);
-            const unpaidSum = unpaid.reduce((s, b) => s + (Number(b.amount) || 0), 0);
-
-            document.getElementById('billStats').innerHTML = `
-                <div class="stat-card info">
-                    <div class="stat-icon">${ICONS.chart}</div>
-                    <div class="stat-number">${fmtCurrency(total)}</div>
-                    <div class="stat-title">סך חודשי</div>
-                </div>
-                <div class="stat-card success">
-                    <div class="stat-icon">${ICONS.check}</div>
-                    <div class="stat-number">${fmtCurrency(paidSum)}</div>
-                    <div class="stat-title">שולם החודש</div>
-                </div>
-                <div class="stat-card warning">
-                    <div class="stat-icon">${ICONS.clock}</div>
-                    <div class="stat-number">${fmtCurrency(unpaidSum)}</div>
-                    <div class="stat-title">לתשלום החודש</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">${ICONS.bill}</div>
-                    <div class="stat-number">${billsData.length}</div>
-                    <div class="stat-title">סה"כ חשבונות</div>
-                </div>`;
-        }
-
         function render() {
-            renderStats();
-
             const filter = filterSelect.value;
             let bills = billsData;
             if (filter) bills = bills.filter(b => b.category === filter);

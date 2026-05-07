@@ -204,10 +204,11 @@ const BILL_CATEGORIES = [
 ];
 
 const DOC_CATEGORIES = [
-    { value: 'contract', label: 'חוזה' },
-    { value: 'certificate', label: 'תעודה' },
+    { value: 'receipt', label: 'קבלה / קניות' },
     { value: 'invoice', label: 'חשבונית' },
+    { value: 'contract', label: 'חוזה' },
     { value: 'warranty', label: 'אחריות' },
+    { value: 'certificate', label: 'תעודה' },
     { value: 'manual', label: 'הוראות הפעלה' },
     { value: 'medical', label: 'רפואי' },
     { value: 'tax', label: 'מסים' },

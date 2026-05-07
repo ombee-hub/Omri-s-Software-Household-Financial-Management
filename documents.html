@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="Omri's%20Software%20-%20icon.png">
-    <title>התוכנה של עמרי - מסמכים</title>
+    <title>התוכנה של עמרי - מסמכים וקבלות</title>
     <link rel="stylesheet" href="app.css">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -42,6 +42,75 @@
         .doc-meta { color: var(--gray-dark); font-size: 0.88rem; line-height: 1.7; }
         .doc-meta strong { color: var(--dark); font-weight: 600; }
         .doc-actions { display: flex; gap: 4px; justify-content: flex-end; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+        .doc-thumb {
+            width: 100%;
+            height: 140px;
+            background: var(--light);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            margin-top: 4px;
+        }
+        .doc-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .doc-thumb .pdf-icon {
+            color: var(--danger); display: flex; flex-direction: column;
+            align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 600;
+        }
+        .doc-thumb .pdf-icon svg { width: 42px; height: 42px; }
+
+        .file-drop-zone {
+            border: 2px dashed var(--border);
+            background: var(--light-2);
+            border-radius: var(--radius-sm);
+            padding: 18px;
+            text-align: center;
+            cursor: pointer;
+            color: var(--gray-dark);
+            transition: 0.2s;
+            font-size: 0.9rem;
+        }
+        .file-drop-zone:hover { border-color: var(--primary); color: var(--primary); }
+        .file-drop-zone.has-file {
+            background: rgba(67, 160, 71, 0.06);
+            border-color: var(--secondary);
+            color: var(--dark);
+            text-align: right;
+        }
+        .file-drop-zone svg { width: 24px; height: 24px; vertical-align: middle; margin-left: 6px; }
+
+        .file-preview {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: var(--light-2);
+            border-radius: var(--radius-sm);
+            margin-top: 8px;
+        }
+        .file-preview img { max-width: 60px; max-height: 60px; border-radius: 4px; }
+        .file-preview .file-info { flex: 1; }
+        .file-preview .file-name { font-weight: 600; font-size: 0.9rem; }
+        .file-preview .file-size { font-size: 0.82rem; color: var(--gray-dark); }
+        .file-preview .file-remove { color: var(--danger); cursor: pointer; }
+
+        .lightbox {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            display: none; align-items: center; justify-content: center;
+            z-index: 2000; padding: 20px;
+        }
+        .lightbox.show { display: flex; }
+        .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .lightbox-close {
+            position: absolute; top: 20px; left: 20px;
+            background: white; border: none; border-radius: 50%;
+            width: 44px; height: 44px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
     </style>
 </head>
 <body>
@@ -49,8 +118,8 @@
 
     <div class="page-title-bar">
         <div class="container">
-            <h2>מסמכי הבית</h2>
-            <div class="subtitle">מקום מרכזי לזכור איפה שמורים חוזים, תעודות ומסמכים חשובים</div>
+            <h2>מסמכים וקבלות</h2>
+            <div class="subtitle">העלה תמונות של קבלות, חשבוניות, חוזים ותעודות. תמונות נדחסות אוטומטית.</div>
         </div>
     </div>
 
@@ -76,7 +145,7 @@
 
                 <div class="form-group">
                     <label class="form-label">שם המסמך <span style="color:var(--danger)">*</span></label>
-                    <input type="text" id="docTitle" class="form-input" placeholder="חוזה שכירות 2026" required>
+                    <input type="text" id="docTitle" class="form-input" placeholder="קבלה מקסטוק - ינואר" required>
                 </div>
 
                 <div class="form-row">
@@ -91,8 +160,18 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">מיקום פיזי / קישור</label>
-                    <input type="text" id="docLocation" class="form-input" placeholder="תיקייה מס' 3 בארון, או https://drive...">
+                    <label class="form-label">קובץ (תמונה/PDF)</label>
+                    <div class="file-drop-zone" id="dropZone" onclick="document.getElementById('docFileInput').click()">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <span id="dropZoneText">גרור לכאן תמונה או PDF, או לחץ לבחירה</span>
+                    </div>
+                    <input type="file" id="docFileInput" style="display:none" accept="image/*,.pdf,application/pdf" onchange="handleFileSelect(event)">
+                    <div id="filePreview" style="display:none"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">או קישור (אופציונלי)</label>
+                    <input type="text" id="docLocation" class="form-input" placeholder="https://drive... או 'תיקייה 3 בארון'">
                 </div>
 
                 <div class="form-group">
@@ -100,18 +179,27 @@
                     <textarea id="docNotes" class="form-textarea"></textarea>
                 </div>
 
+                <div id="saveError" style="color:var(--danger);font-size:0.9rem;margin-bottom:10px;display:none"></div>
+
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">שמור</button>
+                    <button type="submit" class="btn btn-primary" id="saveDocBtn">שמור</button>
                     <button type="button" class="btn btn-outline" onclick="closeModal('docModal')">בטל</button>
                 </div>
             </form>
         </div>
     </div>
 
+    <!-- Lightbox for viewing images -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <button class="lightbox-close" onclick="closeLightbox()" id="lightboxCloseBtn"></button>
+        <img id="lightboxImg" src="" alt="">
+    </div>
+
     <script src="app.js"></script>
     <script>
         document.getElementById('addDocBtn').innerHTML = ICONS.plus + '<span>הוסף מסמך</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
+        document.getElementById('lightboxCloseBtn').innerHTML = ICONS.close;
 
         const catSelect = document.getElementById('docCategory');
         const filterSelect = document.getElementById('filterCategory');
@@ -123,12 +211,22 @@
         });
 
         let docsData = [];
+        let currentFile = null; // { dataUrl, type, name, size }
 
         function escapeHtml(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
         }
 
         function isUrl(s) { return /^https?:\/\//i.test(s || ''); }
+
+        function fmtSize(bytes) {
+            if (!bytes) return '';
+            const kb = bytes / 1024;
+            if (kb < 1024) return kb.toFixed(0) + ' KB';
+            return (kb / 1024).toFixed(1) + ' MB';
+        }
+
+        // ===== Render =====
 
         function render() {
             const filter = filterSelect.value;
@@ -142,7 +240,7 @@
                         <div class="empty-state">
                             <div class="empty-icon">${ICONS.folder}</div>
                             <h3>אין מסמכים</h3>
-                            <p>לחץ על "הוסף מסמך" כדי לרשום מסמך חדש</p>
+                            <p>לחץ על "הוסף מסמך" כדי לרשום מסמך חדש או להעלות קבלה</p>
                         </div>
                     </div>`;
                 return;
@@ -153,20 +251,39 @@
                 const cat = getDocCategory(d.category);
                 const locationDisplay = isUrl(d.location)
                     ? `<a href="${escapeHtml(d.location)}" target="_blank">פתח קישור ↗</a>`
-                    : escapeHtml(d.location || '—');
+                    : (d.location ? escapeHtml(d.location) : '—');
+
+                let thumbHtml = '';
+                if (d.fileData && d.fileType) {
+                    if (d.fileType.startsWith('image/')) {
+                        thumbHtml = `<div class="doc-thumb" onclick="openLightbox('${d.id}')">
+                            <img src="${d.fileData}" alt="${escapeHtml(d.title)}">
+                        </div>`;
+                    } else if (d.fileType === 'application/pdf') {
+                        thumbHtml = `<div class="doc-thumb" onclick="downloadFile('${d.id}')">
+                            <div class="pdf-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                <span>PDF · לחץ להורדה</span>
+                            </div>
+                        </div>`;
+                    }
+                }
+
                 return `
                 <div class="doc-card">
                     <div class="doc-icon-row">
                         <div class="doc-icon">${ICONS.folder}</div>
                         <div class="doc-title">${escapeHtml(d.title)}</div>
                     </div>
+                    ${thumbHtml}
                     <div class="doc-meta">
                         <div><strong>קטגוריה:</strong> ${cat.label}</div>
                         ${d.date ? `<div><strong>תאריך:</strong> ${fmtDate(d.date)}</div>` : ''}
-                        <div><strong>מיקום:</strong> ${locationDisplay}</div>
+                        ${d.location ? `<div><strong>מיקום:</strong> ${locationDisplay}</div>` : ''}
                         ${d.notes ? `<div><strong>הערות:</strong> ${escapeHtml(d.notes)}</div>` : ''}
                     </div>
                     <div class="doc-actions">
+                        ${d.fileData ? `<button class="btn-icon" onclick="downloadFile('${d.id}')" title="הורד">${ICONS.arrowLeft}</button>` : ''}
                         <button class="btn-icon" onclick="openDocModal('${d.id}')" title="ערוך">${ICONS.edit}</button>
                         <button class="btn-icon danger" onclick="deleteDoc('${d.id}', '${escapeHtml(d.title)}')" title="מחק">${ICONS.trash}</button>
                     </div>
@@ -174,10 +291,174 @@
             }).join('')}</div>`;
         }
 
+        // ===== File handling =====
+
+        async function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            await processFile(file);
+            e.target.value = ''; // allow re-selecting same file
+        }
+
+        async function processFile(file) {
+            const errEl = document.getElementById('saveError');
+            errEl.style.display = 'none';
+
+            try {
+                if (file.type.startsWith('image/')) {
+                    const compressed = await compressImage(file, 1400, 0.78);
+                    currentFile = {
+                        dataUrl: compressed.dataUrl,
+                        type: 'image/jpeg',
+                        name: file.name,
+                        size: compressed.size,
+                    };
+                } else if (file.type === 'application/pdf') {
+                    if (file.size > 800 * 1024) {
+                        throw new Error('PDF גדול מדי - עד 800KB. נסה לדחוס אותו.');
+                    }
+                    const dataUrl = await fileToDataUrl(file);
+                    currentFile = {
+                        dataUrl,
+                        type: 'application/pdf',
+                        name: file.name,
+                        size: file.size,
+                    };
+                } else {
+                    throw new Error('סוג קובץ לא נתמך - רק תמונות או PDF');
+                }
+                renderFilePreview();
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.style.display = 'block';
+            }
+        }
+
+        function renderFilePreview() {
+            const dropZone = document.getElementById('dropZone');
+            const dropText = document.getElementById('dropZoneText');
+            const previewEl = document.getElementById('filePreview');
+
+            if (!currentFile) {
+                dropZone.classList.remove('has-file');
+                dropText.textContent = 'גרור לכאן תמונה או PDF, או לחץ לבחירה';
+                previewEl.style.display = 'none';
+                previewEl.innerHTML = '';
+                return;
+            }
+
+            dropZone.classList.add('has-file');
+            dropText.textContent = '✓ קובץ נבחר';
+
+            const isImg = currentFile.type.startsWith('image/');
+            previewEl.style.display = 'block';
+            previewEl.innerHTML = `
+                <div class="file-preview">
+                    ${isImg ? `<img src="${currentFile.dataUrl}" alt="">` : `<div style="font-size:2rem">📄</div>`}
+                    <div class="file-info">
+                        <div class="file-name">${escapeHtml(currentFile.name)}</div>
+                        <div class="file-size">${fmtSize(currentFile.size)}</div>
+                    </div>
+                    <button type="button" class="btn-icon file-remove" onclick="removeFile()" title="הסר">${ICONS.trash}</button>
+                </div>`;
+        }
+
+        function removeFile() {
+            currentFile = null;
+            renderFilePreview();
+        }
+
+        function fileToDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function compressImage(file, maxDim, quality) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        let { width, height } = img;
+                        if (width > maxDim || height > maxDim) {
+                            if (width > height) {
+                                height = Math.round(height * maxDim / width);
+                                width = maxDim;
+                            } else {
+                                width = Math.round(width * maxDim / height);
+                                height = maxDim;
+                            }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        const size = Math.round((dataUrl.length * 3) / 4);
+                        resolve({ dataUrl, size });
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Drag-drop wiring on the drop zone
+        (function wireDrop() {
+            const z = document.getElementById('dropZone');
+            ['dragenter', 'dragover'].forEach(e => z.addEventListener(e, ev => {
+                ev.preventDefault(); ev.stopPropagation();
+                z.style.borderColor = 'var(--primary)';
+            }));
+            ['dragleave', 'drop'].forEach(e => z.addEventListener(e, ev => {
+                ev.preventDefault(); ev.stopPropagation();
+                z.style.borderColor = '';
+            }));
+            z.addEventListener('drop', (ev) => {
+                if (ev.dataTransfer.files && ev.dataTransfer.files[0]) {
+                    processFile(ev.dataTransfer.files[0]);
+                }
+            });
+        })();
+
+        // ===== Lightbox =====
+
+        function openLightbox(id) {
+            const d = docsData.find(x => x.id === id);
+            if (!d || !d.fileData) return;
+            document.getElementById('lightboxImg').src = d.fileData;
+            document.getElementById('lightbox').classList.add('show');
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('show');
+        }
+
+        function downloadFile(id) {
+            const d = docsData.find(x => x.id === id);
+            if (!d || !d.fileData) return;
+            const a = document.createElement('a');
+            a.href = d.fileData;
+            a.download = d.fileName || (d.title + (d.fileType === 'application/pdf' ? '.pdf' : '.jpg'));
+            a.click();
+        }
+
+        // ===== Modal =====
+
         async function openDocModal(id) {
             document.getElementById('docForm').reset();
             document.getElementById('docId').value = '';
             document.getElementById('docModalTitle').textContent = 'הוסף מסמך';
+            document.getElementById('saveError').style.display = 'none';
+            currentFile = null;
+            renderFilePreview();
 
             if (id) {
                 const d = await Docs.findById(id);
@@ -189,6 +470,15 @@
                     document.getElementById('docLocation').value = d.location || '';
                     document.getElementById('docNotes').value = d.notes || '';
                     document.getElementById('docModalTitle').textContent = 'עריכת מסמך';
+                    if (d.fileData) {
+                        currentFile = {
+                            dataUrl: d.fileData,
+                            type: d.fileType,
+                            name: d.fileName || 'קובץ',
+                            size: d.fileSize || 0,
+                        };
+                        renderFilePreview();
+                    }
                 }
             }
             openModal('docModal');
@@ -196,6 +486,9 @@
 
         async function saveDoc(e) {
             e.preventDefault();
+            const errEl = document.getElementById('saveError');
+            errEl.style.display = 'none';
+
             const id = document.getElementById('docId').value;
             const data = {
                 title: document.getElementById('docTitle').value.trim(),
@@ -203,13 +496,27 @@
                 date: document.getElementById('docDate').value || null,
                 location: document.getElementById('docLocation').value.trim(),
                 notes: document.getElementById('docNotes').value.trim(),
+                fileData: currentFile ? currentFile.dataUrl : null,
+                fileType: currentFile ? currentFile.type : null,
+                fileName: currentFile ? currentFile.name : null,
+                fileSize: currentFile ? currentFile.size : null,
             };
+
+            const btn = document.getElementById('saveDocBtn');
+            btn.disabled = true;
+            btn.textContent = 'שומר...';
+
             try {
                 if (id) await Docs.update(id, data);
                 else await Docs.add(data);
                 closeModal('docModal');
             } catch (err) {
-                alert('שגיאה בשמירה: ' + err.message);
+                console.error('save error', err);
+                errEl.textContent = 'שגיאה בשמירה: ' + (err.message || err);
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'שמור';
             }
         }
 
