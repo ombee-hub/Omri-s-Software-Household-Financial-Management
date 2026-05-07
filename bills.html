@@ -87,10 +87,13 @@
 
         /* Mobile: convert table to cards */
         @media (max-width: 768px) {
-            #billsContainer .data-table { border: none; }
-            #billsContainer .data-table thead { display: none; }
-            #billsContainer .data-table, #billsContainer .data-table tbody, #billsContainer .data-table tr, #billsContainer .data-table td {
-                display: block; width: 100%;
+            #billsContainer .data-table { border: none !important; }
+            #billsContainer .data-table thead { display: none !important; }
+            #billsContainer .data-table,
+            #billsContainer .data-table tbody,
+            #billsContainer .data-table tr,
+            #billsContainer .data-table td {
+                display: block !important; width: 100% !important;
             }
             #billsContainer .data-table tr {
                 margin-bottom: 14px;
@@ -262,7 +265,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=16"></script>
+    <script src="app.js?v=17"></script>
     <script>
         document.getElementById('addBillBtn').innerHTML = ICONS.plus + '<span>הוסף חשבון</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
