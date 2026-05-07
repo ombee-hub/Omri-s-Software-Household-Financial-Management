@@ -10,23 +10,34 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="Omri's%20Software%20-%20icon.png">
-    <title>התוכנה של עמרי - ניהול משתמשים</title>
+    <title>התוכנה של עמרי - הפרופיל שלי</title>
     <link rel="stylesheet" href="app.css">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
     <style>
-        .user-row { display: flex; align-items: center; gap: 14px; padding: 14px; border-bottom: 1px solid var(--border); }
-        .user-row:last-child { border-bottom: none; }
-        .user-avatar {
-            width: 44px; height: 44px; border-radius: 50%;
+        .profile-row {
+            display: flex; align-items: center; gap: 16px;
+            padding: 16px; border-bottom: 1px solid var(--border);
+        }
+        .profile-row:last-child { border-bottom: none; }
+        .profile-avatar {
+            width: 60px; height: 60px; border-radius: 50%;
             background: linear-gradient(135deg, var(--primary), var(--primary-light));
             color: white; display: flex; align-items: center; justify-content: center;
-            font-weight: 700; font-size: 1.1rem; flex-shrink: 0;
+            font-weight: 700; font-size: 1.5rem; flex-shrink: 0;
         }
-        .user-info { flex: 1; min-width: 0; }
-        .user-display { font-weight: 600; font-size: 1.05rem; color: var(--dark); }
-        .user-username { color: var(--gray-dark); font-size: 0.88rem; margin-top: 2px; }
-        .user-current-badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: var(--secondary); color: white; margin-right: 8px; vertical-align: middle; }
-        .user-row .actions { display: flex; gap: 4px; flex-shrink: 0; }
+        .profile-info { flex: 1; }
+        .profile-name { font-weight: 700; font-size: 1.1rem; color: var(--dark); }
+        .profile-email { color: var(--gray-dark); font-size: 0.9rem; margin-top: 2px; }
+        .info-box {
+            background: var(--light); padding: 14px;
+            border-radius: var(--radius-sm); margin-bottom: 16px;
+            color: var(--gray-dark); font-size: 0.9rem; line-height: 1.6;
+        }
+        .info-box strong { color: var(--dark); }
     </style>
 </head>
 <body>
@@ -34,97 +45,57 @@
 
     <div class="page-title-bar">
         <div class="container">
-            <h2>ניהול משתמשים</h2>
-            <div class="subtitle">הוספה, עריכה ומחיקה של משתמשים שיכולים להיכנס לתוכנה. כל המשתמשים רואים את אותם נתונים.</div>
+            <h2>הפרופיל שלי</h2>
+            <div class="subtitle">פרטי המשתמש שלך והגדרות סיסמה</div>
         </div>
     </div>
 
     <main class="container">
-        <div class="toolbar">
-            <div></div>
-            <button class="btn btn-primary" onclick="openAddUserModal()" id="addUserBtn">הוסף משתמש</button>
+        <div class="card">
+            <h3 class="card-title" style="margin-bottom:14px">פרטי המשתמש</h3>
+            <div id="profileContent"></div>
+            <div style="margin-top:16px">
+                <button class="btn btn-primary" onclick="openModal('passwordModal')" id="changePwBtn">שנה סיסמה</button>
+            </div>
         </div>
 
         <div class="card">
-            <div id="usersContainer"></div>
+            <h3 class="card-title" style="margin-bottom:14px">ניהול משתמשים</h3>
+            <div class="info-box">
+                <strong>הוספה / הסרה של משתמשים:</strong> מתבצעת דרך
+                <a href="https://console.firebase.google.com/u/0/project/omri-s-software/authentication/users" target="_blank">Firebase Console</a>
+                בלשונית <strong>Authentication → Users</strong>.
+                <br><br>
+                המשתמשים הקיימים יכולים להיכנס מכל מכשיר עם המייל והסיסמה שלהם, וכולם רואים את אותם נתונים (כרטיסים, חשבונות, משימות, מסמכים).
+            </div>
         </div>
     </main>
 
-    <!-- Add user modal -->
-    <div class="modal-backdrop" id="addUserModal">
+    <!-- Change password modal -->
+    <div class="modal-backdrop" id="passwordModal">
         <div class="modal">
             <div class="modal-header">
-                <div class="modal-title">הוסף משתמש חדש</div>
-                <button class="modal-close" onclick="closeModal('addUserModal')" id="addCloseBtn"></button>
+                <div class="modal-title">שינוי סיסמה</div>
+                <button class="modal-close" onclick="closeModal('passwordModal')" id="closeBtn"></button>
             </div>
-            <form id="addUserForm" onsubmit="saveNewUser(event)">
+            <form id="passwordForm" onsubmit="changePassword(event)">
                 <div class="form-group">
-                    <label class="form-label">שם משתמש (לכניסה) <span style="color:var(--danger)">*</span></label>
-                    <input type="text" id="newUsername" class="form-input" placeholder="dana" required autocomplete="off">
+                    <label class="form-label">סיסמה נוכחית <span style="color:var(--danger)">*</span></label>
+                    <input type="password" id="currentPassword" class="form-input" required autocomplete="current-password">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">שם תצוגה (יופיע בכותרת) <span style="color:var(--danger)">*</span></label>
-                    <input type="text" id="newDisplayName" class="form-input" placeholder="דנה" required autocomplete="off">
+                    <label class="form-label">סיסמה חדשה <span style="color:var(--danger)">*</span></label>
+                    <input type="password" id="newPassword" class="form-input" minlength="6" required autocomplete="new-password">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">סיסמה <span style="color:var(--danger)">*</span></label>
-                    <div class="password-wrapper">
-                        <input type="password" id="newPassword" class="form-input" minlength="4" required autocomplete="new-password">
-                        <button type="button" class="password-toggle" data-target="newPassword" aria-label="הצג סיסמה"></button>
-                    </div>
+                    <label class="form-label">אימות סיסמה חדשה <span style="color:var(--danger)">*</span></label>
+                    <input type="password" id="confirmPassword" class="form-input" minlength="6" required autocomplete="new-password">
                 </div>
-                <div class="form-group">
-                    <label class="form-label">אימות סיסמה <span style="color:var(--danger)">*</span></label>
-                    <div class="password-wrapper">
-                        <input type="password" id="newPasswordConfirm" class="form-input" minlength="4" required autocomplete="new-password">
-                        <button type="button" class="password-toggle" data-target="newPasswordConfirm" aria-label="הצג סיסמה"></button>
-                    </div>
-                </div>
-                <div id="addError" style="color:var(--danger);font-size:0.9rem;margin-bottom:10px;display:none"></div>
+                <div id="pwError" style="color:var(--danger);font-size:0.9rem;margin-bottom:10px;display:none"></div>
+                <div id="pwSuccess" style="color:var(--success);font-size:0.9rem;margin-bottom:10px;display:none">הסיסמה שונתה בהצלחה</div>
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">הוסף</button>
-                    <button type="button" class="btn btn-outline" onclick="closeModal('addUserModal')">בטל</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Edit user modal -->
-    <div class="modal-backdrop" id="editUserModal">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title">עריכת משתמש</div>
-                <button class="modal-close" onclick="closeModal('editUserModal')" id="editCloseBtn"></button>
-            </div>
-            <form id="editUserForm" onsubmit="saveEditUser(event)">
-                <input type="hidden" id="editUserId">
-                <div class="form-group">
-                    <label class="form-label">שם משתמש</label>
-                    <input type="text" id="editUsername" class="form-input" disabled>
-                    <small style="color:var(--gray-dark);font-size:0.82rem">לא ניתן לשנות שם משתמש</small>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">שם תצוגה <span style="color:var(--danger)">*</span></label>
-                    <input type="text" id="editDisplayName" class="form-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">סיסמה חדשה (אופציונלי)</label>
-                    <div class="password-wrapper">
-                        <input type="password" id="editPassword" class="form-input" minlength="4" placeholder="השאר ריק כדי לא לשנות" autocomplete="new-password">
-                        <button type="button" class="password-toggle" data-target="editPassword" aria-label="הצג סיסמה"></button>
-                    </div>
-                </div>
-                <div class="form-group" id="editConfirmGroup" style="display:none">
-                    <label class="form-label">אימות סיסמה חדשה</label>
-                    <div class="password-wrapper">
-                        <input type="password" id="editPasswordConfirm" class="form-input" minlength="4" autocomplete="new-password">
-                        <button type="button" class="password-toggle" data-target="editPasswordConfirm" aria-label="הצג סיסמה"></button>
-                    </div>
-                </div>
-                <div id="editError" style="color:var(--danger);font-size:0.9rem;margin-bottom:10px;display:none"></div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">שמור</button>
-                    <button type="button" class="btn btn-outline" onclick="closeModal('editUserModal')">בטל</button>
+                    <button type="submit" class="btn btn-primary" id="savePwBtn">שמור</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('passwordModal')">בטל</button>
                 </div>
             </form>
         </div>
@@ -132,168 +103,73 @@
 
     <script src="app.js"></script>
     <script>
-        const EYE_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-        const EYE_OFF = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
-
-        // Inject icons into modals
-        document.getElementById('addCloseBtn').innerHTML = ICONS.close;
-        document.getElementById('editCloseBtn').innerHTML = ICONS.close;
-        document.getElementById('addUserBtn').innerHTML = ICONS.plus + '<span>הוסף משתמש</span>';
-
-        // Wire up password toggles
-        function wirePasswordToggle(btn) {
-            btn.innerHTML = EYE_OPEN;
-            btn.addEventListener('click', () => {
-                const input = document.getElementById(btn.dataset.target);
-                const showing = input.type === 'text';
-                input.type = showing ? 'password' : 'text';
-                btn.innerHTML = showing ? EYE_OPEN : EYE_OFF;
-            });
-        }
-        document.querySelectorAll('.password-toggle').forEach(wirePasswordToggle);
-
-        // Show confirm password in edit modal only when typing a new password
-        const editPw = document.getElementById('editPassword');
-        const editConfirm = document.getElementById('editPasswordConfirm');
-        const editConfirmGroup = document.getElementById('editConfirmGroup');
-        editPw.addEventListener('input', () => {
-            const showConfirm = editPw.value.length > 0;
-            editConfirmGroup.style.display = showConfirm ? 'block' : 'none';
-            editConfirm.required = showConfirm;
-            if (!showConfirm) editConfirm.value = '';
-        });
+        document.getElementById('closeBtn').innerHTML = ICONS.close;
 
         function escapeHtml(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
         }
 
-        function initial(name) {
-            return (name || '?').trim().charAt(0).toUpperCase();
+        function initial(s) {
+            return (s || '?').trim().charAt(0).toUpperCase();
         }
 
-        function render() {
-            const users = Users.all();
-            const me = currentUser();
-            const meId = me && me.id;
-            const container = document.getElementById('usersContainer');
-
-            container.innerHTML = users.map(u => {
-                const isMe = u.id === meId;
-                const isLast = users.length === 1;
-                return `
-                <div class="user-row">
-                    <div class="user-avatar">${escapeHtml(initial(u.displayName))}</div>
-                    <div class="user-info">
-                        <div class="user-display">${escapeHtml(u.displayName)}${isMe ? '<span class="user-current-badge">זה אתה</span>' : ''}</div>
-                        <div class="user-username">@${escapeHtml(u.username)} · נוצר ב-${fmtDate(u.createdAt)}</div>
-                    </div>
-                    <div class="actions">
-                        <button class="btn-icon" onclick="openEditUserModal('${u.id}')" title="ערוך">${ICONS.edit}</button>
-                        <button class="btn-icon danger" onclick="deleteUser('${u.id}')" title="מחק" ${isLast ? 'disabled style="opacity:0.4;cursor:not-allowed"' : ''}>${ICONS.trash}</button>
+        function renderProfile() {
+            const u = currentUser();
+            if (!u) return;
+            const displayName = getDisplayName(u);
+            document.getElementById('profileContent').innerHTML = `
+                <div class="profile-row">
+                    <div class="profile-avatar">${escapeHtml(initial(displayName))}</div>
+                    <div class="profile-info">
+                        <div class="profile-name">${escapeHtml(displayName)}</div>
+                        <div class="profile-email">${escapeHtml(u.email || '')}</div>
                     </div>
                 </div>`;
-            }).join('');
         }
 
-        function openAddUserModal() {
-            document.getElementById('addUserForm').reset();
-            document.getElementById('addError').style.display = 'none';
-            openModal('addUserModal');
-            setTimeout(() => document.getElementById('newUsername').focus(), 50);
-        }
-
-        async function saveNewUser(e) {
+        async function changePassword(e) {
             e.preventDefault();
-            const errEl = document.getElementById('addError');
-            const username = document.getElementById('newUsername').value.trim();
-            const displayName = document.getElementById('newDisplayName').value.trim();
-            const password = document.getElementById('newPassword').value;
-            const confirm = document.getElementById('newPasswordConfirm').value;
+            const errEl = document.getElementById('pwError');
+            const okEl = document.getElementById('pwSuccess');
+            errEl.style.display = 'none';
+            okEl.style.display = 'none';
 
-            if (password !== confirm) {
-                errEl.textContent = 'הסיסמאות לא תואמות';
+            const currentPw = document.getElementById('currentPassword').value;
+            const newPw = document.getElementById('newPassword').value;
+            const confirmPw = document.getElementById('confirmPassword').value;
+
+            if (newPw !== confirmPw) {
+                errEl.textContent = 'הסיסמאות החדשות לא תואמות';
                 errEl.style.display = 'block';
                 return;
             }
+
+            const btn = document.getElementById('savePwBtn');
+            btn.disabled = true;
+            btn.textContent = 'שומר...';
+
             try {
-                await Users.add({ username, displayName, password });
-                closeModal('addUserModal');
-                render();
+                const u = auth.currentUser;
+                const credential = firebase.auth.EmailAuthProvider.credential(u.email, currentPw);
+                await u.reauthenticateWithCredential(credential);
+                await u.updatePassword(newPw);
+                okEl.style.display = 'block';
+                document.getElementById('passwordForm').reset();
+                setTimeout(() => closeModal('passwordModal'), 1500);
             } catch (err) {
-                errEl.textContent = err.message || 'שגיאה ביצירת משתמש';
+                console.error('Change password error:', err);
+                const msg = err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential'
+                    ? 'הסיסמה הנוכחית לא נכונה'
+                    : (err.message || 'שגיאה בשינוי הסיסמה');
+                errEl.textContent = msg;
                 errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'שמור';
             }
         }
 
-        function openEditUserModal(id) {
-            const u = Users.findById(id);
-            if (!u) return;
-            document.getElementById('editUserForm').reset();
-            document.getElementById('editError').style.display = 'none';
-            document.getElementById('editUserId').value = u.id;
-            document.getElementById('editUsername').value = u.username;
-            document.getElementById('editDisplayName').value = u.displayName;
-            document.getElementById('editConfirmGroup').style.display = 'none';
-            openModal('editUserModal');
-        }
-
-        async function saveEditUser(e) {
-            e.preventDefault();
-            const errEl = document.getElementById('editError');
-            const id = document.getElementById('editUserId').value;
-            const displayName = document.getElementById('editDisplayName').value.trim();
-            const password = document.getElementById('editPassword').value;
-            const confirm = document.getElementById('editPasswordConfirm').value;
-
-            if (password && password !== confirm) {
-                errEl.textContent = 'הסיסמאות לא תואמות';
-                errEl.style.display = 'block';
-                return;
-            }
-            try {
-                const data = { displayName };
-                if (password) data.password = password;
-                const updated = await Users.update(id, data);
-
-                // If editing self, sync the session displayName
-                const me = currentUser();
-                if (me && me.id === id && updated) {
-                    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify({ ...me, displayName: updated.displayName }));
-                }
-
-                closeModal('editUserModal');
-                render();
-                mountHeader();
-            } catch (err) {
-                errEl.textContent = err.message || 'שגיאה בעדכון';
-                errEl.style.display = 'block';
-            }
-        }
-
-        function deleteUser(id) {
-            const u = Users.findById(id);
-            if (!u) return;
-            const me = currentUser();
-            const isMe = me && me.id === id;
-            const msg = isMe
-                ? `למחוק את המשתמש שלך "${u.displayName}"? לאחר המחיקה תועבר חזרה לדף הכניסה.`
-                : `למחוק את המשתמש "${u.displayName}"?`;
-            if (!confirm(msg)) return;
-            try {
-                Users.remove(id);
-                if (isMe) {
-                    localStorage.removeItem(STORAGE_KEYS.USER);
-                    window.location.href = 'login.html';
-                    return;
-                }
-                render();
-            } catch (err) {
-                alert(err.message || 'שגיאה במחיקה');
-            }
-        }
-
-        // mountHeader is called by app.js DOMContentLoaded; render after that
-        document.addEventListener('DOMContentLoaded', render);
+        document.addEventListener('auth:ready', renderProfile);
     </script>
 </body>
 </html>

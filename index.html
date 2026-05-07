@@ -13,6 +13,10 @@
     <title>התוכנה של עמרי - דאשבורד</title>
     <link rel="stylesheet" href="app.css">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
 </head>
 <body>
     <div id="appHeader"></div>
@@ -53,19 +57,19 @@
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
         }
 
-        function renderStats() {
-            const cards = Cards.all();
-            const bills = Bills.all();
-            const tasks = Tasks.all();
+        let cardsData = [];
+        let billsData = [];
+        let tasksData = [];
 
-            const totalMonthly = bills.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
-            const unpaidThisMonth = bills.filter(b => !Bills.isPaidThisMonth(b)).length;
-            const openTasks = tasks.filter(t => !t.done).length;
+        function renderStats() {
+            const totalMonthly = billsData.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+            const unpaidThisMonth = billsData.filter(b => !Bills.isPaidThisMonth(b)).length;
+            const openTasks = tasksData.filter(t => !t.done).length;
 
             document.getElementById('statsGrid').innerHTML = `
                 <div class="stat-card info">
                     <div class="stat-icon">${ICONS.card}</div>
-                    <div class="stat-number">${cards.length}</div>
+                    <div class="stat-number">${cardsData.length}</div>
                     <div class="stat-title">כרטיסי אשראי</div>
                 </div>
                 <div class="stat-card">
@@ -86,10 +90,8 @@
         }
 
         function renderUpcomingBills() {
-            const bills = Bills.all();
             const container = document.getElementById('upcomingBills');
-
-            if (bills.length === 0) {
+            if (billsData.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">${ICONS.bill}</div>
@@ -99,7 +101,7 @@
                 return;
             }
 
-            const sorted = [...bills].sort((a, b) => (a.dueDay || 31) - (b.dueDay || 31));
+            const sorted = [...billsData].sort((a, b) => (a.dueDay || 31) - (b.dueDay || 31));
             container.innerHTML = `
                 <table class="data-table">
                     <thead><tr><th>חשבון</th><th>קטגוריה</th><th>סכום</th><th>יום בחודש</th><th>סטטוס</th></tr></thead>
@@ -122,10 +124,9 @@
         }
 
         function renderOpenTasks() {
-            const tasks = Tasks.all().filter(t => !t.done);
+            const open = tasksData.filter(t => !t.done);
             const container = document.getElementById('openTasks');
-
-            if (tasks.length === 0) {
+            if (open.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">${ICONS.check}</div>
@@ -134,8 +135,7 @@
                     </div>`;
                 return;
             }
-
-            const sorted = [...tasks].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+            const sorted = [...open].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
             container.innerHTML = `
                 <table class="data-table">
                     <thead><tr><th>משימה</th><th>תאריך</th><th>עדיפות</th></tr></thead>
@@ -154,9 +154,18 @@
                 </table>`;
         }
 
-        renderStats();
-        renderUpcomingBills();
-        renderOpenTasks();
+        function renderAll() {
+            renderStats();
+            renderUpcomingBills();
+            renderOpenTasks();
+        }
+
+        // Wait for auth ready, then subscribe to real-time data
+        document.addEventListener('auth:ready', () => {
+            Cards.subscribe(items => { cardsData = items; renderAll(); });
+            Bills.subscribe(items => { billsData = items; renderAll(); });
+            Tasks.subscribe(items => { tasksData = items; renderAll(); });
+        });
     </script>
 </body>
 </html>

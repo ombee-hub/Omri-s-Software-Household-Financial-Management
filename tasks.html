@@ -13,6 +13,10 @@
     <title>התוכנה של עמרי - משימות</title>
     <link rel="stylesheet" href="app.css">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
     <style>
         .task-row { display: flex; align-items: center; gap: 14px; padding: 14px; border-bottom: 1px solid var(--border); }
         .task-row:last-child { border-bottom: none; }
@@ -97,6 +101,8 @@
         document.getElementById('addTaskBtn').innerHTML = ICONS.plus + '<span>הוסף משימה</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
 
+        let tasksData = [];
+
         function escapeHtml(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
         }
@@ -109,7 +115,7 @@
 
         function render() {
             const filter = document.getElementById('filterStatus').value;
-            let tasks = Tasks.all();
+            let tasks = tasksData;
             if (filter === 'open') tasks = tasks.filter(t => !t.done);
             else if (filter === 'done') tasks = tasks.filter(t => t.done);
 
@@ -150,14 +156,14 @@
             }).join('');
         }
 
-        function openTaskModal(id) {
+        async function openTaskModal(id) {
             document.getElementById('taskForm').reset();
             document.getElementById('taskId').value = '';
             document.getElementById('taskModalTitle').textContent = 'הוסף משימה';
             document.getElementById('taskPriority').value = 'low';
 
             if (id) {
-                const t = Tasks.all().find(x => x.id === id);
+                const t = await Tasks.findById(id);
                 if (t) {
                     document.getElementById('taskId').value = t.id;
                     document.getElementById('taskTitle').value = t.title || '';
@@ -170,7 +176,7 @@
             openModal('taskModal');
         }
 
-        function saveTask(e) {
+        async function saveTask(e) {
             e.preventDefault();
             const id = document.getElementById('taskId').value;
             const data = {
@@ -179,25 +185,35 @@
                 priority: document.getElementById('taskPriority').value,
                 notes: document.getElementById('taskNotes').value.trim(),
             };
-            if (id) Tasks.update(id, data);
-            else Tasks.add(data);
-            closeModal('taskModal');
-            render();
-        }
-
-        function toggleDone(id) {
-            Tasks.toggleDone(id);
-            render();
-        }
-
-        function deleteTask(id, name) {
-            if (confirmDelete(name)) {
-                Tasks.remove(id);
-                render();
+            try {
+                if (id) await Tasks.update(id, data);
+                else await Tasks.add({ ...data, done: false });
+                closeModal('taskModal');
+            } catch (err) {
+                alert('שגיאה בשמירה: ' + err.message);
             }
         }
 
-        render();
+        async function toggleDone(id) {
+            try {
+                await Tasks.toggleDone(id);
+            } catch (err) {
+                alert('שגיאה: ' + err.message);
+            }
+        }
+
+        async function deleteTask(id, name) {
+            if (!confirmDelete(name)) return;
+            try {
+                await Tasks.remove(id);
+            } catch (err) {
+                alert('שגיאה במחיקה: ' + err.message);
+            }
+        }
+
+        document.addEventListener('auth:ready', () => {
+            Tasks.subscribe(items => { tasksData = items; render(); });
+        });
     </script>
 </body>
 </html>

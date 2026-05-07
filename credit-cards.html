@@ -13,6 +13,10 @@
     <title>התוכנה של עמרי - כרטיסי אשראי</title>
     <link rel="stylesheet" href="app.css">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
 </head>
 <body>
     <div id="appHeader"></div>
@@ -102,7 +106,6 @@
 
     <script src="app.js"></script>
     <script>
-        // Inject icons
         document.getElementById('addCardBtn').innerHTML = ICONS.plus + '<span>הוסף כרטיס</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
 
@@ -118,21 +121,21 @@
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
         }
 
-        function render() {
-            const cards = Cards.all();
-            const container = document.getElementById('cardsContainer');
+        let cardsData = [];
 
+        function render() {
+            const container = document.getElementById('cardsContainer');
             const addBtn = `<button class="cc-add-card" onclick="openCardModal()">
                 ${ICONS.plus}
                 <span>הוסף כרטיס חדש</span>
             </button>`;
 
-            if (cards.length === 0) {
+            if (cardsData.length === 0) {
                 container.innerHTML = `<div class="cc-grid">${addBtn}</div>`;
                 return;
             }
 
-            const cardsHtml = cards.map(c => {
+            const cardsHtml = cardsData.map(c => {
                 const last4 = c.last4 ? c.last4 : '••••';
                 const typeClass = c.type ? c.type : '';
                 const expDisplay = c.expMonth && c.expYear ? fmtMonth(c.expMonth, c.expYear) : '—';
@@ -171,13 +174,13 @@
             container.innerHTML = `<div class="cc-grid">${cardsHtml}${addBtn}</div>`;
         }
 
-        function openCardModal(id) {
+        async function openCardModal(id) {
             document.getElementById('cardForm').reset();
             document.getElementById('cardId').value = '';
             document.getElementById('cardModalTitle').textContent = 'הוסף כרטיס';
 
             if (id) {
-                const c = Cards.findById(id);
+                const c = await Cards.findById(id);
                 if (c) {
                     document.getElementById('cardId').value = c.id;
                     document.getElementById('cardNickname').value = c.nickname || '';
@@ -195,7 +198,7 @@
             openModal('cardModal');
         }
 
-        function saveCard(e) {
+        async function saveCard(e) {
             e.preventDefault();
             const id = document.getElementById('cardId').value;
             const data = {
@@ -209,20 +212,27 @@
                 creditLimit: Number(document.getElementById('cardLimit').value) || null,
                 notes: document.getElementById('cardNotes').value.trim(),
             };
-            if (id) Cards.update(id, data);
-            else Cards.add(data);
-            closeModal('cardModal');
-            render();
-        }
-
-        function deleteCard(id, name) {
-            if (confirmDelete(name)) {
-                Cards.remove(id);
-                render();
+            try {
+                if (id) await Cards.update(id, data);
+                else await Cards.add(data);
+                closeModal('cardModal');
+            } catch (err) {
+                alert('שגיאה בשמירה: ' + err.message);
             }
         }
 
-        render();
+        async function deleteCard(id, name) {
+            if (!confirmDelete(name)) return;
+            try {
+                await Cards.remove(id);
+            } catch (err) {
+                alert('שגיאה במחיקה: ' + err.message);
+            }
+        }
+
+        document.addEventListener('auth:ready', () => {
+            Cards.subscribe(items => { cardsData = items; render(); });
+        });
     </script>
 </body>
 </html>

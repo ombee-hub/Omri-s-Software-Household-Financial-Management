@@ -13,6 +13,10 @@
     <title>התוכנה של עמרי - מסמכים</title>
     <link rel="stylesheet" href="app.css">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
     <style>
         .docs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
         .doc-card {
@@ -118,6 +122,8 @@
             filterSelect.appendChild(opt.cloneNode(true));
         });
 
+        let docsData = [];
+
         function escapeHtml(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
         }
@@ -126,7 +132,7 @@
 
         function render() {
             const filter = filterSelect.value;
-            let docs = Docs.all();
+            let docs = docsData;
             if (filter) docs = docs.filter(d => d.category === filter);
 
             const container = document.getElementById('docsContainer');
@@ -168,13 +174,13 @@
             }).join('')}</div>`;
         }
 
-        function openDocModal(id) {
+        async function openDocModal(id) {
             document.getElementById('docForm').reset();
             document.getElementById('docId').value = '';
             document.getElementById('docModalTitle').textContent = 'הוסף מסמך';
 
             if (id) {
-                const d = Docs.all().find(x => x.id === id);
+                const d = await Docs.findById(id);
                 if (d) {
                     document.getElementById('docId').value = d.id;
                     document.getElementById('docTitle').value = d.title || '';
@@ -188,7 +194,7 @@
             openModal('docModal');
         }
 
-        function saveDoc(e) {
+        async function saveDoc(e) {
             e.preventDefault();
             const id = document.getElementById('docId').value;
             const data = {
@@ -198,20 +204,27 @@
                 location: document.getElementById('docLocation').value.trim(),
                 notes: document.getElementById('docNotes').value.trim(),
             };
-            if (id) Docs.update(id, data);
-            else Docs.add(data);
-            closeModal('docModal');
-            render();
-        }
-
-        function deleteDoc(id, name) {
-            if (confirmDelete(name)) {
-                Docs.remove(id);
-                render();
+            try {
+                if (id) await Docs.update(id, data);
+                else await Docs.add(data);
+                closeModal('docModal');
+            } catch (err) {
+                alert('שגיאה בשמירה: ' + err.message);
             }
         }
 
-        render();
+        async function deleteDoc(id, name) {
+            if (!confirmDelete(name)) return;
+            try {
+                await Docs.remove(id);
+            } catch (err) {
+                alert('שגיאה במחיקה: ' + err.message);
+            }
+        }
+
+        document.addEventListener('auth:ready', () => {
+            Docs.subscribe(items => { docsData = items; render(); });
+        });
     </script>
 </body>
 </html>

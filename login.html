@@ -13,6 +13,10 @@
     <title>התוכנה של עמרי - התחברות</title>
     <link rel="stylesheet" href="app.css">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
     <style>
         body {
             min-height: 100vh;
@@ -61,6 +65,11 @@
             margin-top: 6px;
         }
 
+        .login-card .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         .login-footer {
             text-align: center;
             margin-top: 22px;
@@ -81,28 +90,6 @@
 
         .error-message.show { display: block; }
 
-        .password-wrapper { position: relative; }
-        .password-wrapper .form-input { padding-left: 44px; }
-        .password-toggle {
-            position: absolute;
-            left: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            color: var(--gray-dark);
-            padding: 6px;
-            border-radius: var(--radius-sm);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: color 0.15s, background-color 0.15s;
-        }
-        .password-toggle:hover { color: var(--primary); background-color: var(--light); }
-        .password-toggle svg { width: 20px; height: 20px; }
-
-        /* Install button */
         .install-divider {
             display: flex;
             align-items: center;
@@ -198,12 +185,12 @@
         </div>
         <p class="login-subtitle">ברוכים הבאים. נא להתחבר כדי להמשיך</p>
 
-        <div id="errorMessage" class="error-message">שם משתמש או סיסמה לא נכונים</div>
+        <div id="errorMessage" class="error-message"></div>
 
         <form id="loginForm" onsubmit="login(event)">
             <div class="form-group">
-                <label class="form-label">שם משתמש</label>
-                <input type="text" id="username" class="form-input" placeholder="omri" required autocomplete="username">
+                <label class="form-label">אימייל</label>
+                <input type="email" id="email" class="form-input" placeholder="omri@household.local" required autocomplete="username">
             </div>
 
             <div class="form-group">
@@ -214,11 +201,11 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary">התחברות</button>
+            <button type="submit" class="btn btn-primary" id="loginBtn">התחברות</button>
         </form>
 
         <div class="login-footer">
-            התוכנה של עמרי, גרסה 2.0
+            התוכנה של עמרי, גרסה 3.0
         </div>
     </div>
 
@@ -278,31 +265,47 @@
             pwInput.focus();
         });
 
+        function showError(msg) {
+            const el = document.getElementById('errorMessage');
+            el.textContent = msg;
+            el.classList.add('show');
+        }
+        function clearError() {
+            document.getElementById('errorMessage').classList.remove('show');
+        }
+
+        // Translate Firebase auth error codes to Hebrew
+        function authErrorMessage(err) {
+            const code = err && err.code;
+            const map = {
+                'auth/invalid-email': 'כתובת אימייל לא תקינה',
+                'auth/user-disabled': 'המשתמש הזה הושבת',
+                'auth/user-not-found': 'משתמש לא נמצא',
+                'auth/wrong-password': 'סיסמה לא נכונה',
+                'auth/invalid-credential': 'אימייל או סיסמה לא נכונים',
+                'auth/too-many-requests': 'יותר מדי ניסיונות, נסה שוב בעוד מספר דקות',
+                'auth/network-request-failed': 'אין חיבור לאינטרנט',
+            };
+            return map[code] || (err.message || 'שגיאה בהתחברות');
+        }
+
         async function login(e) {
             e.preventDefault();
-            const username = document.getElementById('username').value.trim();
+            clearError();
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
-            const errEl = document.getElementById('errorMessage');
-
+            const btn = document.getElementById('loginBtn');
+            btn.disabled = true;
+            btn.textContent = 'מתחבר...';
             try {
-                const user = await Users.authenticate(username, password);
-                if (user) {
-                    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify({
-                        id: user.id,
-                        username: user.username,
-                        displayName: user.displayName,
-                        loginAt: new Date().toISOString(),
-                    }));
-                    window.location.href = 'index.html';
-                } else {
-                    errEl.classList.add('show');
-                    document.getElementById('password').value = '';
-                    console.warn('Login failed: username or password incorrect');
-                }
+                await auth.signInWithEmailAndPassword(email, password);
+                // Auth state listener in app.js will redirect to index.html
             } catch (err) {
-                errEl.textContent = 'שגיאה בהתחברות: ' + (err.message || err);
-                errEl.classList.add('show');
                 console.error('Login error:', err);
+                showError(authErrorMessage(err));
+                btn.disabled = false;
+                btn.textContent = 'התחברות';
+                document.getElementById('password').value = '';
             }
         }
 
@@ -321,7 +324,6 @@
             installDivider.style.display = 'none';
         }
 
-        // Hide only when already installed (running as standalone PWA)
         if (isStandalone) hideInstallButton();
 
         window.addEventListener('beforeinstallprompt', (e) => {
@@ -337,8 +339,6 @@
                 const { outcome } = await deferredPrompt.userChoice;
                 if (outcome === 'accepted') hideInstallButton();
                 deferredPrompt = null;
-            } else if (isIOS) {
-                openModal('iosModal');
             } else {
                 openModal('iosModal');
             }

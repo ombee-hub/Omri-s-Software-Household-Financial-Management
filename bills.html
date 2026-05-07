@@ -13,6 +13,10 @@
     <title>התוכנה של עמרי - חשבונות</title>
     <link rel="stylesheet" href="app.css">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
 </head>
 <body>
     <div id="appHeader"></div>
@@ -104,11 +108,14 @@
             filterSelect.appendChild(opt.cloneNode(true));
         });
 
-        function refreshCards() {
+        let billsData = [];
+        let cardsData = [];
+
+        function refreshCardSelect() {
             const sel = document.getElementById('billCardId');
             const current = sel.value;
             sel.innerHTML = '<option value="">ללא / מזומן</option>';
-            Cards.all().forEach(c => {
+            cardsData.forEach(c => {
                 const opt = document.createElement('option');
                 opt.value = c.id;
                 opt.textContent = (c.nickname || c.bank || 'כרטיס') + (c.last4 ? ' (••' + c.last4 + ')' : '');
@@ -117,15 +124,16 @@
             sel.value = current;
         }
 
+        function findCard(id) { return cardsData.find(c => c.id === id); }
+
         function escapeHtml(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
         }
 
         function renderStats() {
-            const bills = Bills.all();
-            const total = bills.reduce((s, b) => s + (Number(b.amount) || 0), 0);
-            const paid = bills.filter(b => Bills.isPaidThisMonth(b));
-            const unpaid = bills.filter(b => !Bills.isPaidThisMonth(b));
+            const total = billsData.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+            const paid = billsData.filter(b => Bills.isPaidThisMonth(b));
+            const unpaid = billsData.filter(b => !Bills.isPaidThisMonth(b));
             const paidSum = paid.reduce((s, b) => s + (Number(b.amount) || 0), 0);
             const unpaidSum = unpaid.reduce((s, b) => s + (Number(b.amount) || 0), 0);
 
@@ -147,17 +155,17 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon">${ICONS.bill}</div>
-                    <div class="stat-number">${bills.length}</div>
+                    <div class="stat-number">${billsData.length}</div>
                     <div class="stat-title">סה"כ חשבונות</div>
                 </div>`;
         }
 
         function render() {
             renderStats();
-            refreshCards();
+            refreshCardSelect();
 
             const filter = filterSelect.value;
-            let bills = Bills.all();
+            let bills = billsData;
             if (filter) bills = bills.filter(b => b.category === filter);
 
             const container = document.getElementById('billsContainer');
@@ -180,7 +188,7 @@
                     <tbody>
                         ${sorted.map(b => {
                             const cat = getBillCategory(b.category);
-                            const card = b.cardId ? Cards.findById(b.cardId) : null;
+                            const card = b.cardId ? findCard(b.cardId) : null;
                             const cardLabel = card ? (card.nickname || card.bank || 'כרטיס') + (card.last4 ? ' ••' + card.last4 : '') : '—';
                             const paid = Bills.isPaidThisMonth(b);
                             return `<tr>
@@ -204,15 +212,14 @@
                 </table>`;
         }
 
-        function openBillModal(id) {
+        async function openBillModal(id) {
             document.getElementById('billForm').reset();
             document.getElementById('billId').value = '';
             document.getElementById('billModalTitle').textContent = 'הוסף חשבון';
-            refreshCards();
+            refreshCardSelect();
 
             if (id) {
-                const list = Bills.all();
-                const b = list.find(x => x.id === id);
+                const b = await Bills.findById(id);
                 if (b) {
                     document.getElementById('billId').value = b.id;
                     document.getElementById('billName').value = b.name || '';
@@ -227,7 +234,7 @@
             openModal('billModal');
         }
 
-        function saveBill(e) {
+        async function saveBill(e) {
             e.preventDefault();
             const id = document.getElementById('billId').value;
             const data = {
@@ -238,25 +245,36 @@
                 cardId: document.getElementById('billCardId').value || null,
                 notes: document.getElementById('billNotes').value.trim(),
             };
-            if (id) Bills.update(id, data);
-            else Bills.add(data);
-            closeModal('billModal');
-            render();
-        }
-
-        function togglePaid(id) {
-            Bills.togglePaid(id, currentYM());
-            render();
-        }
-
-        function deleteBill(id, name) {
-            if (confirmDelete(name)) {
-                Bills.remove(id);
-                render();
+            try {
+                if (id) await Bills.update(id, data);
+                else await Bills.add(data);
+                closeModal('billModal');
+            } catch (err) {
+                alert('שגיאה בשמירה: ' + err.message);
             }
         }
 
-        render();
+        async function togglePaid(id) {
+            try {
+                await Bills.togglePaid(id, currentYM());
+            } catch (err) {
+                alert('שגיאה: ' + err.message);
+            }
+        }
+
+        async function deleteBill(id, name) {
+            if (!confirmDelete(name)) return;
+            try {
+                await Bills.remove(id);
+            } catch (err) {
+                alert('שגיאה במחיקה: ' + err.message);
+            }
+        }
+
+        document.addEventListener('auth:ready', () => {
+            Cards.subscribe(items => { cardsData = items; render(); });
+            Bills.subscribe(items => { billsData = items; render(); });
+        });
     </script>
 </body>
 </html>
