@@ -112,7 +112,7 @@ function renderHeader() {
     const activePage = window.location.pathname.split('/').pop() || 'index.html';
     const links = [
         { href: 'index.html', label: 'דאשבורד', shortLabel: 'בית', icon: ICONS.dashboard },
-        { href: 'credit-cards.html', label: 'כרטיסי אשראי', shortLabel: 'כרטיסים', icon: ICONS.card },
+        { href: 'credit-cards.html', label: 'דפי אשראי', shortLabel: 'דפי אשראי', icon: ICONS.card },
         { href: 'bills.html', label: 'חשבונות', shortLabel: 'חשבונות', icon: ICONS.bill },
         { href: 'tasks.html', label: 'משימות', shortLabel: 'משימות', icon: ICONS.task },
         { href: 'documents.html', label: 'מסמכים', shortLabel: 'מסמכים', icon: ICONS.folder },
@@ -281,7 +281,10 @@ function makeStore(collectionName) {
     };
 }
 
-const Cards = makeStore('cards');
+const Cards = makeStore('cards'); // legacy - kept for migration only
+
+// Credit card statements (each = one uploaded Excel file from a credit card company)
+const Statements = makeStore('statements');
 const Tasks = Object.assign(makeStore('tasks'), {
     async toggleDone(id) {
         const doc = await db.collection('tasks').doc(id).get();

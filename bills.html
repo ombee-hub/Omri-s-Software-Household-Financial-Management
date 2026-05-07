@@ -74,10 +74,8 @@
                         <input type="number" id="billDueDay" class="form-input" min="1" max="31" placeholder="10">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">כרטיס לחיוב</label>
-                        <select id="billCardId" class="form-select">
-                            <option value="">ללא / מזומן</option>
-                        </select>
+                        <label class="form-label">אמצעי תשלום</label>
+                        <input type="text" id="billCardName" class="form-input" placeholder="ויזה ••1234, או מזומן">
                     </div>
                 </div>
 
@@ -109,22 +107,6 @@
         });
 
         let billsData = [];
-        let cardsData = [];
-
-        function refreshCardSelect() {
-            const sel = document.getElementById('billCardId');
-            const current = sel.value;
-            sel.innerHTML = '<option value="">ללא / מזומן</option>';
-            cardsData.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c.id;
-                opt.textContent = (c.nickname || c.bank || 'כרטיס') + (c.last4 ? ' (••' + c.last4 + ')' : '');
-                sel.appendChild(opt);
-            });
-            sel.value = current;
-        }
-
-        function findCard(id) { return cardsData.find(c => c.id === id); }
 
         function escapeHtml(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
@@ -162,7 +144,6 @@
 
         function render() {
             renderStats();
-            refreshCardSelect();
 
             const filter = filterSelect.value;
             let bills = billsData;
@@ -188,8 +169,7 @@
                     <tbody>
                         ${sorted.map(b => {
                             const cat = getBillCategory(b.category);
-                            const card = b.cardId ? findCard(b.cardId) : null;
-                            const cardLabel = card ? (card.nickname || card.bank || 'כרטיס') + (card.last4 ? ' ••' + card.last4 : '') : '—';
+                            const cardLabel = b.cardName || '—';
                             const paid = Bills.isPaidThisMonth(b);
                             return `<tr>
                                 <td><strong>${escapeHtml(b.name)}</strong>${b.notes ? '<br><small style="color:var(--gray-dark)">' + escapeHtml(b.notes) + '</small>' : ''}</td>
@@ -216,7 +196,6 @@
             document.getElementById('billForm').reset();
             document.getElementById('billId').value = '';
             document.getElementById('billModalTitle').textContent = 'הוסף חשבון';
-            refreshCardSelect();
 
             if (id) {
                 const b = await Bills.findById(id);
@@ -226,7 +205,7 @@
                     document.getElementById('billCategory').value = b.category || '';
                     document.getElementById('billAmount').value = b.amount || '';
                     document.getElementById('billDueDay').value = b.dueDay || '';
-                    document.getElementById('billCardId').value = b.cardId || '';
+                    document.getElementById('billCardName').value = b.cardName || '';
                     document.getElementById('billNotes').value = b.notes || '';
                     document.getElementById('billModalTitle').textContent = 'עריכת חשבון';
                 }
@@ -242,7 +221,7 @@
                 category: document.getElementById('billCategory').value,
                 amount: Number(document.getElementById('billAmount').value) || 0,
                 dueDay: Number(document.getElementById('billDueDay').value) || null,
-                cardId: document.getElementById('billCardId').value || null,
+                cardName: document.getElementById('billCardName').value.trim() || null,
                 notes: document.getElementById('billNotes').value.trim(),
             };
             try {
@@ -272,7 +251,6 @@
         }
 
         document.addEventListener('auth:ready', () => {
-            Cards.subscribe(items => { cardsData = items; render(); });
             Bills.subscribe(items => { billsData = items; render(); });
         });
     </script>

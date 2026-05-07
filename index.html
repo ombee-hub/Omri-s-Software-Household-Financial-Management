@@ -57,7 +57,7 @@
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
         }
 
-        let cardsData = [];
+        let statementsData = [];
         let billsData = [];
         let tasksData = [];
 
@@ -65,12 +65,15 @@
             const totalMonthly = billsData.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
             const unpaidThisMonth = billsData.filter(b => !Bills.isPaidThisMonth(b)).length;
             const openTasks = tasksData.filter(t => !t.done).length;
+            const ym = currentYM();
+            const stmtsThisMonth = statementsData.filter(s => s.month === ym).length;
+            const totalStatements = statementsData.length;
 
             document.getElementById('statsGrid').innerHTML = `
                 <div class="stat-card info">
                     <div class="stat-icon">${ICONS.card}</div>
-                    <div class="stat-number">${cardsData.length}</div>
-                    <div class="stat-title">כרטיסי אשראי</div>
+                    <div class="stat-number">${totalStatements}</div>
+                    <div class="stat-title">דפי אשראי${stmtsThisMonth ? ' (' + stmtsThisMonth + ' החודש)' : ''}</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon"><img src="israel_nis.png" alt="₪" style="width:22px;height:22px;object-fit:contain"></div>
@@ -162,7 +165,7 @@
 
         // Wait for auth ready, then subscribe to real-time data
         document.addEventListener('auth:ready', () => {
-            Cards.subscribe(items => { cardsData = items; renderAll(); });
+            Statements.subscribe(items => { statementsData = items; renderAll(); });
             Bills.subscribe(items => { billsData = items; renderAll(); });
             Tasks.subscribe(items => { tasksData = items; renderAll(); });
         });

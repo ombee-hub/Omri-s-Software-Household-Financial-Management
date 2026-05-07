@@ -10,228 +10,631 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="Omri's%20Software%20-%20icon.png">
-    <title>התוכנה של עמרי - כרטיסי אשראי</title>
+    <title>התוכנה של עמרי - דפי אשראי</title>
     <link rel="stylesheet" href="app.css">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <script src="firebase-init.js"></script>
+    <style>
+        .upload-zone {
+            border: 2px dashed var(--border);
+            background: var(--light-2);
+            border-radius: var(--radius);
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.2s;
+            color: var(--gray-dark);
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--primary);
+            background: rgba(30, 58, 95, 0.04);
+            color: var(--primary);
+        }
+        .upload-zone svg { width: 40px; height: 40px; margin-bottom: 8px; }
+        .upload-zone strong { color: var(--dark); }
+
+        .preview-table { font-size: 0.85rem; }
+        .preview-table th, .preview-table td { padding: 6px 10px; }
+
+        .col-mapper {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            gap: 10px;
+            align-items: center;
+            padding: 8px 0;
+        }
+        .col-mapper label { font-weight: 600; color: var(--dark); }
+
+        .stmt-card {
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .stmt-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+
+        .merchant-cell {
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--gray-dark);
+            font-size: 0.92rem;
+            margin-bottom: 14px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            font-family: inherit;
+        }
+        .back-link:hover { color: var(--primary); }
+        .back-link svg { width: 16px; height: 16px; }
+
+        .stat-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--light);
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            color: var(--gray-dark);
+            margin-left: 6px;
+        }
+        .stat-pill strong { color: var(--dark); }
+
+        .file-input { display: none; }
+    </style>
 </head>
 <body>
     <div id="appHeader"></div>
 
     <div class="page-title-bar">
         <div class="container">
-            <h2>כרטיסי אשראי</h2>
-            <div class="subtitle">מעקב פרטי חיוב ומסגרות אשראי. למען האבטחה - שומרים רק 4 ספרות אחרונות, בלי המספר המלא או CVV.</div>
+            <h2 id="pageTitle">דפי אשראי</h2>
+            <div class="subtitle" id="pageSubtitle">העלה קובץ אקסל מחברת האשראי - המערכת תחלץ את העסקאות אוטומטית</div>
         </div>
     </div>
 
     <main class="container">
-        <div class="toolbar">
-            <div></div>
-            <button class="btn btn-primary" onclick="openCardModal()" id="addCardBtn">הוסף כרטיס</button>
+        <!-- LIST VIEW -->
+        <div id="listView">
+            <div class="toolbar">
+                <div></div>
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" id="uploadBtn">העלה דף אשראי</button>
+                <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls,.csv" onchange="handleFileSelected(event)">
+            </div>
+
+            <div id="statementsContainer"></div>
         </div>
 
-        <div id="cardsContainer"></div>
+        <!-- DETAIL VIEW (one statement) -->
+        <div id="detailView" style="display:none">
+            <button class="back-link" onclick="showList()" id="backBtn">חזרה לרשימה</button>
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h3 class="card-title" id="detailTitle"></h3>
+                        <div id="detailMeta" style="margin-top:8px"></div>
+                    </div>
+                    <div>
+                        <button class="btn btn-outline btn-sm" onclick="deleteCurrentStatement()" id="detailDeleteBtn">מחק דף</button>
+                    </div>
+                </div>
+                <div id="transactionsContainer"></div>
+            </div>
+        </div>
     </main>
 
-    <div class="modal-backdrop" id="cardModal">
-        <div class="modal">
+    <!-- Upload preview modal -->
+    <div class="modal-backdrop" id="uploadModal">
+        <div class="modal" style="max-width:780px">
             <div class="modal-header">
-                <div class="modal-title" id="cardModalTitle">הוסף כרטיס</div>
-                <button class="modal-close" onclick="closeModal('cardModal')" id="closeBtn"></button>
+                <div class="modal-title">תצוגה מקדימה לפני שמירה</div>
+                <button class="modal-close" onclick="closeUploadModal()" id="closeUpBtn"></button>
             </div>
-            <form id="cardForm" onsubmit="saveCard(event)">
-                <input type="hidden" id="cardId">
 
-                <div class="form-group">
-                    <label class="form-label">שם הכרטיס / כינוי <span style="color:var(--danger)">*</span></label>
-                    <input type="text" id="cardNickname" class="form-input" placeholder="למשל: ויזה הוצאות בית" required>
-                </div>
-
+            <div id="uploadFormContent">
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">בנק / חברת אשראי</label>
-                        <input type="text" id="cardBank" class="form-input" placeholder="פועלים, לאומי, ישראכרט...">
+                        <label class="form-label">שם הדף <span style="color:var(--danger)">*</span></label>
+                        <input type="text" id="stmtName" class="form-input" placeholder="ויזה כאל - נובמבר 2026" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">סוג כרטיס</label>
-                        <select id="cardType" class="form-select">
+                        <label class="form-label">חברת אשראי</label>
+                        <select id="stmtCompany" class="form-select">
                             <option value="">בחר...</option>
+                            <option value="visa">Visa</option>
+                            <option value="mastercard">Mastercard</option>
+                            <option value="amex">American Express</option>
+                            <option value="isracard">ישראכרט</option>
+                            <option value="cal">כאל</option>
+                            <option value="max">Max</option>
+                            <option value="other">אחר</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">4 ספרות אחרונות</label>
-                        <input type="text" id="cardLast4" class="form-input" maxlength="4" pattern="[0-9]{4}" placeholder="1234" inputmode="numeric">
+                        <label class="form-label">חודש החיוב</label>
+                        <input type="month" id="stmtMonth" class="form-input">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">יום חיוב חודשי</label>
-                        <input type="number" id="cardBillingDay" class="form-input" min="1" max="31" placeholder="2">
+                        <label class="form-label">4 ספרות אחרונות (אופציונלי)</label>
+                        <input type="text" id="stmtLast4" class="form-input" maxlength="4" pattern="[0-9]{4}" inputmode="numeric" placeholder="1234">
                     </div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">תוקף - חודש</label>
-                        <input type="number" id="cardExpMonth" class="form-input" min="1" max="12" placeholder="12">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">תוקף - שנה</label>
-                        <input type="number" id="cardExpYear" class="form-input" min="2024" max="2099" placeholder="2028">
-                    </div>
+                <div style="border-top:1px solid var(--border);margin:14px 0;padding-top:14px">
+                    <strong>זיהוי עמודות מהקובץ</strong>
+                    <p style="color:var(--gray-dark);font-size:0.88rem;margin-top:4px">המערכת ניסתה לזהות עמודות אוטומטית. תוכל לשנות אם משהו לא נכון.</p>
+                    <div id="colMapper"></div>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">מסגרת אשראי (₪)</label>
-                    <input type="number" id="cardLimit" class="form-input" min="0" step="100" placeholder="10000">
+                <div style="border-top:1px solid var(--border);margin:14px 0;padding-top:14px">
+                    <strong>תצוגה מקדימה (10 שורות ראשונות):</strong>
+                    <div style="overflow-x:auto;margin-top:8px">
+                        <table class="data-table preview-table" id="previewTable"></table>
+                    </div>
+                    <p id="parseStats" style="color:var(--gray-dark);font-size:0.88rem;margin-top:8px"></p>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">הערות</label>
-                    <textarea id="cardNotes" class="form-textarea" placeholder="פרטים נוספים..."></textarea>
-                </div>
+                <div id="uploadError" style="color:var(--danger);font-size:0.9rem;margin:10px 0;display:none"></div>
 
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">שמור</button>
-                    <button type="button" class="btn btn-outline" onclick="closeModal('cardModal')">בטל</button>
+                    <button type="button" class="btn btn-primary" onclick="saveStatement()" id="saveStmtBtn">שמור דף אשראי</button>
+                    <button type="button" class="btn btn-outline" onclick="closeUploadModal()">בטל</button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
     <script src="app.js"></script>
     <script>
-        document.getElementById('addCardBtn').innerHTML = ICONS.plus + '<span>הוסף כרטיס</span>';
-        document.getElementById('closeBtn').innerHTML = ICONS.close;
-
-        const typeSelect = document.getElementById('cardType');
-        CARD_TYPES.forEach(t => {
-            const opt = document.createElement('option');
-            opt.value = t.value;
-            opt.textContent = t.label;
-            typeSelect.appendChild(opt);
-        });
+        document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה דף אשראי</span>';
+        document.getElementById('closeUpBtn').innerHTML = ICONS.close;
+        document.getElementById('backBtn').innerHTML = ICONS.arrowLeft + '<span>חזרה לרשימה</span>';
 
         function escapeHtml(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
         }
 
-        let cardsData = [];
+        let statementsData = [];
+        let currentStatement = null;
+        let parsedRows = []; // raw rows from Excel
+        let detectedHeaders = []; // column headers detected
+        let columnMapping = { date: -1, merchant: -1, amount: -1, notes: -1, installment: -1 };
 
-        function render() {
-            const container = document.getElementById('cardsContainer');
-            const addBtn = `<button class="cc-add-card" onclick="openCardModal()">
-                ${ICONS.plus}
-                <span>הוסף כרטיס חדש</span>
-            </button>`;
+        // ===== List view =====
 
-            if (cardsData.length === 0) {
-                container.innerHTML = `<div class="cc-grid">${addBtn}</div>`;
+        function renderList() {
+            const container = document.getElementById('statementsContainer');
+            if (statementsData.length === 0) {
+                container.innerHTML = `
+                    <div class="upload-zone" onclick="document.getElementById('fileInput').click()" id="uploadZone">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <div><strong>גרור קובץ אקסל לכאן</strong> או לחץ לבחירה</div>
+                        <div style="font-size:0.85rem;margin-top:4px">פורמטים נתמכים: .xlsx, .xls, .csv</div>
+                    </div>`;
+                wireDropZone();
                 return;
             }
 
-            const cardsHtml = cardsData.map(c => {
-                const last4 = c.last4 ? c.last4 : '••••';
-                const typeClass = c.type ? c.type : '';
-                const expDisplay = c.expMonth && c.expYear ? fmtMonth(c.expMonth, c.expYear) : '—';
-                const billingDisplay = c.billingDay ? c.billingDay + ' בחודש' : '—';
-                return `
-                <div>
-                    <div class="cc-card ${typeClass}">
-                        <div class="cc-top">
-                            <div class="cc-bank">${escapeHtml(c.bank || c.nickname || 'כרטיס')}</div>
-                            <div class="cc-type">${getCardType(c.type).label}</div>
+            const sorted = [...statementsData].sort((a, b) => (b.month || '').localeCompare(a.month || ''));
+            container.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px">
+                ${sorted.map(s => {
+                    const total = (s.transactions || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+                    const count = (s.transactions || []).length;
+                    return `
+                    <div class="card stmt-card" onclick="showDetail('${s.id}')" style="margin-bottom:0">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                            <div>
+                                <h3 style="font-size:1.05rem;color:var(--dark);font-weight:700;margin-bottom:4px">${escapeHtml(s.name)}</h3>
+                                <div style="color:var(--gray-dark);font-size:0.88rem">${s.month ? formatYM(s.month) : '—'}${s.last4 ? ' · ••' + escapeHtml(s.last4) : ''}</div>
+                            </div>
+                            ${getCompanyBadge(s.company)}
                         </div>
-                        <div class="cc-number">•••• •••• •••• ${escapeHtml(last4)}</div>
-                        <div class="cc-bottom">
+                        <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center">
                             <div>
-                                <div class="cc-label">כינוי</div>
-                                <div class="cc-value">${escapeHtml(c.nickname || '—')}</div>
+                                <div style="font-size:1.6rem;font-weight:700;color:var(--dark)">${fmtCurrency(total)}</div>
+                                <div style="color:var(--gray-dark);font-size:0.85rem">${count} עסקאות</div>
                             </div>
-                            <div>
-                                <div class="cc-label">חיוב</div>
-                                <div class="cc-value">${billingDisplay}</div>
-                            </div>
-                            <div>
-                                <div class="cc-label">תוקף</div>
-                                <div class="cc-value">${expDisplay}</div>
+                            <div style="color:var(--gray)">
+                                ${ICONS.arrowLeft}
                             </div>
                         </div>
-                    </div>
-                    <div class="cc-actions">
-                        ${c.creditLimit ? `<small style="color:var(--gray-dark);margin-left:auto">מסגרת: ${fmtCurrency(c.creditLimit)}</small>` : ''}
-                        <button class="btn-icon" onclick="openCardModal('${c.id}')" title="ערוך">${ICONS.edit}</button>
-                        <button class="btn-icon danger" onclick="deleteCard('${c.id}', '${escapeHtml(c.nickname || c.bank || 'כרטיס')}')" title="מחק">${ICONS.trash}</button>
-                    </div>
-                </div>`;
-            }).join('');
-
-            container.innerHTML = `<div class="cc-grid">${cardsHtml}${addBtn}</div>`;
+                    </div>`;
+                }).join('')}
+            </div>`;
         }
 
-        async function openCardModal(id) {
-            document.getElementById('cardForm').reset();
-            document.getElementById('cardId').value = '';
-            document.getElementById('cardModalTitle').textContent = 'הוסף כרטיס';
-
-            if (id) {
-                const c = await Cards.findById(id);
-                if (c) {
-                    document.getElementById('cardId').value = c.id;
-                    document.getElementById('cardNickname').value = c.nickname || '';
-                    document.getElementById('cardBank').value = c.bank || '';
-                    document.getElementById('cardType').value = c.type || '';
-                    document.getElementById('cardLast4').value = c.last4 || '';
-                    document.getElementById('cardBillingDay').value = c.billingDay || '';
-                    document.getElementById('cardExpMonth').value = c.expMonth || '';
-                    document.getElementById('cardExpYear').value = c.expYear || '';
-                    document.getElementById('cardLimit').value = c.creditLimit || '';
-                    document.getElementById('cardNotes').value = c.notes || '';
-                    document.getElementById('cardModalTitle').textContent = 'עריכת כרטיס';
-                }
-            }
-            openModal('cardModal');
-        }
-
-        async function saveCard(e) {
-            e.preventDefault();
-            const id = document.getElementById('cardId').value;
-            const data = {
-                nickname: document.getElementById('cardNickname').value.trim(),
-                bank: document.getElementById('cardBank').value.trim(),
-                type: document.getElementById('cardType').value,
-                last4: document.getElementById('cardLast4').value.trim(),
-                billingDay: Number(document.getElementById('cardBillingDay').value) || null,
-                expMonth: Number(document.getElementById('cardExpMonth').value) || null,
-                expYear: Number(document.getElementById('cardExpYear').value) || null,
-                creditLimit: Number(document.getElementById('cardLimit').value) || null,
-                notes: document.getElementById('cardNotes').value.trim(),
+        function getCompanyBadge(company) {
+            const companies = {
+                visa: { label: 'Visa', color: '#1a1f71' },
+                mastercard: { label: 'Mastercard', color: '#eb001b' },
+                amex: { label: 'AmEx', color: '#006fcf' },
+                isracard: { label: 'ישראכרט', color: '#d62828' },
+                cal: { label: 'כאל', color: '#00509d' },
+                max: { label: 'Max', color: '#5a189a' },
+                other: { label: 'אחר', color: 'var(--gray)' },
             };
-            try {
-                if (id) await Cards.update(id, data);
-                else await Cards.add(data);
-                closeModal('cardModal');
-            } catch (err) {
-                alert('שגיאה בשמירה: ' + err.message);
-            }
+            const c = companies[company] || { label: '', color: 'var(--gray)' };
+            if (!c.label) return '';
+            return `<span style="background:${c.color};color:white;padding:3px 10px;border-radius:999px;font-size:0.72rem;font-weight:600">${c.label}</span>`;
         }
 
-        async function deleteCard(id, name) {
-            if (!confirmDelete(name)) return;
+        function formatYM(ym) {
+            if (!ym) return '';
+            const [y, m] = ym.split('-');
+            const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+            return months[parseInt(m,10)-1] + ' ' + y;
+        }
+
+        // ===== Detail view =====
+
+        function showDetail(id) {
+            const s = statementsData.find(x => x.id === id);
+            if (!s) return;
+            currentStatement = s;
+            document.getElementById('listView').style.display = 'none';
+            document.getElementById('detailView').style.display = 'block';
+            document.getElementById('pageTitle').textContent = s.name || 'דף אשראי';
+            document.getElementById('pageSubtitle').textContent = (s.month ? formatYM(s.month) : '') + (s.last4 ? ' · ••' + s.last4 : '');
+            document.getElementById('detailTitle').textContent = 'עסקאות בדף';
+
+            const txns = s.transactions || [];
+            const total = txns.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+            document.getElementById('detailMeta').innerHTML = `
+                <span class="stat-pill">סך: <strong>${fmtCurrency(total)}</strong></span>
+                <span class="stat-pill">עסקאות: <strong>${txns.length}</strong></span>
+                ${s.company ? `<span class="stat-pill">חברה: <strong>${escapeHtml(getCompanyName(s.company))}</strong></span>` : ''}
+            `;
+
+            const container = document.getElementById('transactionsContainer');
+            if (txns.length === 0) {
+                container.innerHTML = `<div class="empty-state"><h3>אין עסקאות בדף הזה</h3></div>`;
+                return;
+            }
+
+            const sortedTxns = [...txns].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+            container.innerHTML = `
+                <div style="overflow-x:auto">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>תאריך</th><th>בית עסק</th><th>סכום</th><th>תשלומים</th><th>הערות</th></tr>
+                    </thead>
+                    <tbody>
+                        ${sortedTxns.map(t => `
+                            <tr>
+                                <td style="white-space:nowrap">${escapeHtml(formatDate(t.date))}</td>
+                                <td class="merchant-cell" title="${escapeHtml(t.merchant || '')}">${escapeHtml(t.merchant || '—')}</td>
+                                <td style="white-space:nowrap;font-weight:600">${fmtCurrency(t.amount)}</td>
+                                <td>${escapeHtml(t.installment || '')}</td>
+                                <td>${escapeHtml(t.notes || '')}</td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+                </div>`;
+        }
+
+        function showList() {
+            currentStatement = null;
+            document.getElementById('detailView').style.display = 'none';
+            document.getElementById('listView').style.display = 'block';
+            document.getElementById('pageTitle').textContent = 'דפי אשראי';
+            document.getElementById('pageSubtitle').textContent = 'העלה קובץ אקסל מחברת האשראי - המערכת תחלץ את העסקאות אוטומטית';
+        }
+
+        function getCompanyName(c) {
+            const map = { visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express', isracard: 'ישראכרט', cal: 'כאל', max: 'Max', other: 'אחר' };
+            return map[c] || c || '';
+        }
+
+        function formatDate(d) {
+            if (!d) return '—';
+            const date = new Date(d);
+            if (!isNaN(date)) return date.toLocaleDateString('he-IL');
+            return d;
+        }
+
+        async function deleteCurrentStatement() {
+            if (!currentStatement) return;
+            if (!confirmDelete(currentStatement.name)) return;
             try {
-                await Cards.remove(id);
+                await Statements.remove(currentStatement.id);
+                showList();
             } catch (err) {
                 alert('שגיאה במחיקה: ' + err.message);
             }
         }
 
+        // ===== File upload + parse =====
+
+        function wireDropZone() {
+            const zone = document.getElementById('uploadZone');
+            if (!zone) return;
+            ['dragenter', 'dragover'].forEach(e => zone.addEventListener(e, ev => {
+                ev.preventDefault(); ev.stopPropagation();
+                zone.classList.add('dragover');
+            }));
+            ['dragleave', 'drop'].forEach(e => zone.addEventListener(e, ev => {
+                ev.preventDefault(); ev.stopPropagation();
+                zone.classList.remove('dragover');
+            }));
+            zone.addEventListener('drop', (ev) => {
+                if (ev.dataTransfer.files && ev.dataTransfer.files[0]) {
+                    handleFile(ev.dataTransfer.files[0]);
+                }
+            });
+        }
+
+        function handleFileSelected(e) {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+            e.target.value = ''; // allow re-uploading same file
+        }
+
+        async function handleFile(file) {
+            try {
+                const data = await file.arrayBuffer();
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+
+                if (rows.length < 2) {
+                    alert('הקובץ ריק או לא תקין');
+                    return;
+                }
+
+                // Find header row - look for one with date-like or amount-like text
+                const { headerIdx, headers } = detectHeaderRow(rows);
+                detectedHeaders = headers;
+                parsedRows = rows.slice(headerIdx + 1).filter(r =>
+                    r.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '')
+                );
+
+                // Auto-detect column mapping
+                columnMapping = autoDetectColumns(headers);
+
+                // Default name from filename
+                const nameInput = document.getElementById('stmtName');
+                if (!nameInput.value) {
+                    nameInput.value = file.name.replace(/\.[^/.]+$/, '');
+                }
+
+                // Default month: current month
+                const monthInput = document.getElementById('stmtMonth');
+                if (!monthInput.value) {
+                    monthInput.value = currentYM();
+                }
+
+                renderColumnMapper();
+                renderPreview();
+                openModal('uploadModal');
+            } catch (err) {
+                console.error('Parse error:', err);
+                alert('שגיאה בקריאת הקובץ: ' + err.message);
+            }
+        }
+
+        function detectHeaderRow(rows) {
+            // Look for row that has text-like content (likely headers)
+            // Prefer rows containing common Hebrew header words
+            const keywords = ['תאריך', 'סכום', 'בית עסק', 'ספק', 'date', 'amount', 'merchant', 'description', 'פרטים'];
+            for (let i = 0; i < Math.min(20, rows.length); i++) {
+                const row = rows[i];
+                const text = row.map(c => String(c).toLowerCase()).join(' ');
+                if (keywords.some(kw => text.includes(kw.toLowerCase()))) {
+                    return { headerIdx: i, headers: row.map(c => String(c).trim()) };
+                }
+            }
+            // Fallback: assume first row is headers
+            return { headerIdx: 0, headers: rows[0].map(c => String(c).trim()) };
+        }
+
+        function autoDetectColumns(headers) {
+            const map = { date: -1, merchant: -1, amount: -1, notes: -1, installment: -1 };
+            const lc = headers.map(h => String(h).toLowerCase());
+
+            const find = (patterns) => {
+                for (let i = 0; i < lc.length; i++) {
+                    if (patterns.some(p => lc[i].includes(p))) return i;
+                }
+                return -1;
+            };
+
+            map.date = find(['תאריך עסקה', 'תאריך רכישה', 'תאריך', 'date']);
+            map.merchant = find(['שם בית עסק', 'בית העסק', 'בית עסק', 'ספק', 'תיאור', 'פרטים', 'merchant', 'description']);
+            map.amount = find(['סכום חיוב', 'סכום עסקה', 'סכום בש"ח', 'סכום', 'amount', 'total']);
+            map.installment = find(['תשלום', 'תשלומים', 'מספר תשלום', 'installment']);
+            map.notes = find(['הערה', 'הערות', 'note', 'comment']);
+
+            return map;
+        }
+
+        function renderColumnMapper() {
+            const fields = [
+                { key: 'date', label: 'תאריך *' },
+                { key: 'merchant', label: 'בית עסק *' },
+                { key: 'amount', label: 'סכום *' },
+                { key: 'installment', label: 'תשלומים' },
+                { key: 'notes', label: 'הערות' },
+            ];
+
+            const optionsHtml = '<option value="-1">— לא קיים —</option>' +
+                detectedHeaders.map((h, i) => `<option value="${i}">${escapeHtml(h || '(ריק)')}</option>`).join('');
+
+            document.getElementById('colMapper').innerHTML = fields.map(f => `
+                <div class="col-mapper">
+                    <label>${f.label}</label>
+                    <select class="form-select" data-field="${f.key}" onchange="onColumnChange(this)">
+                        ${optionsHtml.replace(`value="${columnMapping[f.key]}"`, `value="${columnMapping[f.key]}" selected`)}
+                    </select>
+                </div>
+            `).join('');
+        }
+
+        function onColumnChange(sel) {
+            const field = sel.dataset.field;
+            columnMapping[field] = parseInt(sel.value, 10);
+            renderPreview();
+        }
+
+        function renderPreview() {
+            const transactions = parseTransactions();
+            const previewRows = transactions.slice(0, 10);
+            const tbl = document.getElementById('previewTable');
+            tbl.innerHTML = `
+                <thead>
+                    <tr><th>תאריך</th><th>בית עסק</th><th>סכום</th><th>תשלומים</th><th>הערות</th></tr>
+                </thead>
+                <tbody>
+                    ${previewRows.map(t => `
+                        <tr>
+                            <td>${escapeHtml(formatDate(t.date))}</td>
+                            <td class="merchant-cell" title="${escapeHtml(t.merchant)}">${escapeHtml(t.merchant)}</td>
+                            <td>${fmtCurrency(t.amount)}</td>
+                            <td>${escapeHtml(t.installment)}</td>
+                            <td>${escapeHtml(t.notes)}</td>
+                        </tr>`).join('')}
+                </tbody>`;
+
+            const total = transactions.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+            document.getElementById('parseStats').textContent =
+                `זוהו ${transactions.length} עסקאות, סך ${fmtCurrency(total)}`;
+        }
+
+        function parseTransactions() {
+            const out = [];
+            for (const row of parsedRows) {
+                const get = (idx) => idx < 0 || idx >= row.length ? '' : (row[idx] === null || row[idx] === undefined ? '' : String(row[idx]).trim());
+
+                const dateRaw = get(columnMapping.date);
+                const merchant = get(columnMapping.merchant);
+                const amountRaw = get(columnMapping.amount);
+                const installment = get(columnMapping.installment);
+                const notes = get(columnMapping.notes);
+
+                if (!merchant && !amountRaw && !dateRaw) continue;
+
+                const amount = parseAmount(amountRaw);
+                const date = parseDate(dateRaw);
+
+                out.push({
+                    date: date,
+                    merchant: merchant,
+                    amount: amount,
+                    installment: installment,
+                    notes: notes,
+                });
+            }
+            return out;
+        }
+
+        function parseAmount(raw) {
+            if (!raw) return 0;
+            const cleaned = String(raw).replace(/[₪$,\s]/g, '').replace(/[()]/g, '');
+            const n = parseFloat(cleaned);
+            return isNaN(n) ? 0 : n;
+        }
+
+        function parseDate(raw) {
+            if (!raw) return '';
+            // Try DD/MM/YYYY or DD/MM/YY
+            const m = String(raw).match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
+            if (m) {
+                let [, d, mo, y] = m;
+                if (y.length === 2) y = '20' + y;
+                return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
+            }
+            const dt = new Date(raw);
+            if (!isNaN(dt)) return dt.toISOString().slice(0, 10);
+            return String(raw);
+        }
+
+        async function saveStatement() {
+            const errEl = document.getElementById('uploadError');
+            errEl.style.display = 'none';
+
+            const name = document.getElementById('stmtName').value.trim();
+            if (!name) {
+                errEl.textContent = 'חובה להזין שם לדף';
+                errEl.style.display = 'block';
+                return;
+            }
+            if (columnMapping.date < 0 || columnMapping.merchant < 0 || columnMapping.amount < 0) {
+                errEl.textContent = 'חובה לבחור עמודות לתאריך, בית עסק וסכום';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            const transactions = parseTransactions();
+            if (transactions.length === 0) {
+                errEl.textContent = 'לא זוהו עסקאות בקובץ';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            const btn = document.getElementById('saveStmtBtn');
+            btn.disabled = true;
+            btn.textContent = 'שומר...';
+
+            try {
+                await Statements.add({
+                    name,
+                    company: document.getElementById('stmtCompany').value || '',
+                    month: document.getElementById('stmtMonth').value || '',
+                    last4: document.getElementById('stmtLast4').value.trim() || '',
+                    transactions: transactions,
+                    transactionCount: transactions.length,
+                    totalAmount: transactions.reduce((s, t) => s + (Number(t.amount) || 0), 0),
+                });
+                closeUploadModal();
+            } catch (err) {
+                console.error('save error', err);
+                errEl.textContent = 'שגיאה בשמירה: ' + err.message;
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'שמור דף אשראי';
+            }
+        }
+
+        function closeUploadModal() {
+            closeModal('uploadModal');
+            document.getElementById('stmtName').value = '';
+            document.getElementById('stmtCompany').value = '';
+            document.getElementById('stmtMonth').value = '';
+            document.getElementById('stmtLast4').value = '';
+            parsedRows = [];
+            detectedHeaders = [];
+            columnMapping = { date: -1, merchant: -1, amount: -1, notes: -1, installment: -1 };
+        }
+
         document.addEventListener('auth:ready', () => {
-            Cards.subscribe(items => { cardsData = items; render(); });
+            Statements.subscribe(items => {
+                statementsData = items;
+                if (currentStatement) {
+                    const updated = statementsData.find(s => s.id === currentStatement.id);
+                    if (updated) {
+                        currentStatement = updated;
+                        showDetail(updated.id);
+                    } else {
+                        showList();
+                    }
+                } else {
+                    renderList();
+                }
+            });
         });
     </script>
 </body>
