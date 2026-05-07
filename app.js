@@ -138,8 +138,10 @@ function logout() {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop show';
     modal.id = 'logoutConfirmModal';
+    modal.style.alignItems = 'center';
+    modal.style.padding = '20px';
     modal.innerHTML = `
-        <div class="modal" style="max-width:380px;text-align:center">
+        <div class="modal" style="max-width:380px;text-align:center;border-radius:16px">
             <div style="font-size:3rem;margin-bottom:8px">👋</div>
             <h3 style="font-size:1.2rem;font-weight:700;color:var(--dark);margin-bottom:8px">להתנתק?</h3>
             <p style="color:var(--gray-dark);margin-bottom:20px;font-size:0.95rem">תצטרך להזין שוב את הסיסמה בכניסה הבאה.</p>
