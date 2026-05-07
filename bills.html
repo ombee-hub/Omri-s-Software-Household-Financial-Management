@@ -174,11 +174,44 @@
         <img id="lightboxImg" src="" alt="">
     </div>
 
+    <!-- Mark as paid modal -->
+    <div class="modal-backdrop" id="payModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">סימון תשלום</div>
+                <button class="modal-close" onclick="closeModal('payModal')" id="payCloseBtn"></button>
+            </div>
+            <form id="payForm" onsubmit="confirmPay(event)">
+                <input type="hidden" id="payBillId">
+                <div id="payBillName" style="font-weight:600;color:var(--dark);margin-bottom:12px"></div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">סכום ששולם בפועל (₪) <span style="color:var(--danger)">*</span></label>
+                        <input type="number" id="payAmount" class="form-input" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">תאריך תשלום</label>
+                        <input type="date" id="payDate" class="form-input">
+                    </div>
+                </div>
+
+                <div style="color:var(--gray-dark);font-size:0.85rem;margin-bottom:14px" id="payHint"></div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">שמור תשלום</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('payModal')">בטל</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="app.js"></script>
     <script>
         document.getElementById('addBillBtn').innerHTML = ICONS.plus + '<span>הוסף חשבון</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
         document.getElementById('lightboxCloseBtn').innerHTML = ICONS.close;
+        document.getElementById('payCloseBtn').innerHTML = ICONS.close;
 
         const catSelect = document.getElementById('billCategory');
         const filterSelect = document.getElementById('filterCategory');
@@ -229,22 +262,24 @@
                         ${sorted.map(b => {
                             const cat = getBillCategory(b.category);
                             const cardLabel = b.cardName || '—';
-                            const paid = Bills.isPaidThisMonth(b);
+                            const entry = Bills.monthEntry(b, currentYM());
+                            const paid = !!entry;
+                            const paidAmountText = paid && entry.amount ? `<br><small style="color:var(--gray-dark)">שולם ${fmtCurrency(entry.amount)}${entry.paidAt ? ' ב-' + fmtDate(entry.paidAt) : ''}</small>` : '';
                             const fileBtn = b.fileData ? (
                                 b.fileType === 'application/pdf'
                                     ? `<button class="file-pill" onclick="downloadBillFile('${b.id}')" title="הורד PDF">📄 PDF</button>`
                                     : `<button class="file-pill" onclick="openLightbox('${b.id}')" title="הצג תמונה">🖼️ תמונה</button>`
                             ) : '—';
                             return `<tr>
-                                <td><strong>${escapeHtml(b.name)}</strong>${b.notes ? '<br><small style="color:var(--gray-dark)">' + escapeHtml(b.notes) + '</small>' : ''}</td>
+                                <td><strong>${escapeHtml(b.name)}</strong>${b.notes ? '<br><small style="color:var(--gray-dark)">' + escapeHtml(b.notes) + '</small>' : ''}${paidAmountText}</td>
                                 <td>${cat.label}</td>
                                 <td>${fmtCurrency(b.amount)}</td>
                                 <td>${b.dueDay || '—'}</td>
                                 <td>${escapeHtml(cardLabel)}</td>
                                 <td>${fileBtn}</td>
                                 <td>
-                                    <button class="btn btn-sm ${paid ? 'btn-success' : 'btn-outline'}" onclick="togglePaid('${b.id}')">
-                                        ${paid ? 'שולם' : 'לא שולם'}
+                                    <button class="btn btn-sm ${paid ? 'btn-success' : 'btn-outline'}" onclick="onTogglePaid('${b.id}')">
+                                        ${paid ? '✓ שולם' : 'סמן ששולם'}
                                     </button>
                                 </td>
                                 <td class="actions">
@@ -475,9 +510,42 @@
             }
         }
 
-        async function togglePaid(id) {
+        async function onTogglePaid(id) {
+            const bill = billsData.find(b => b.id === id);
+            if (!bill) return;
+            const ym = currentYM();
+            const entry = Bills.monthEntry(bill, ym);
+
+            if (entry) {
+                // Already paid - confirm before unmarking
+                if (confirm(`לבטל את סימון התשלום של "${bill.name}" לחודש זה?`)) {
+                    try {
+                        await Bills.setUnpaid(id, ym);
+                    } catch (err) { alert('שגיאה: ' + err.message); }
+                }
+                return;
+            }
+
+            // Not paid - open the pay modal
+            document.getElementById('payBillId').value = id;
+            document.getElementById('payBillName').textContent = bill.name;
+            document.getElementById('payAmount').value = bill.amount || '';
+            document.getElementById('payDate').value = todayISO();
+            document.getElementById('payHint').textContent = bill.amount
+                ? `הסכום הקבוע של החשבון הוא ${fmtCurrency(bill.amount)}. ניתן לעדכן את הסכום שבאמת שולם החודש.`
+                : '';
+            openModal('payModal');
+            setTimeout(() => document.getElementById('payAmount').focus(), 50);
+        }
+
+        async function confirmPay(e) {
+            e.preventDefault();
+            const id = document.getElementById('payBillId').value;
+            const amount = Number(document.getElementById('payAmount').value);
+            const date = document.getElementById('payDate').value || todayISO();
             try {
-                await Bills.togglePaid(id, currentYM());
+                await Bills.setPaid(id, currentYM(), amount, date);
+                closeModal('payModal');
             } catch (err) {
                 alert('שגיאה: ' + err.message);
             }

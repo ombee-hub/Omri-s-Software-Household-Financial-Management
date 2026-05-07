@@ -402,18 +402,36 @@ const Docs = makeStore('docs');
 const Calculations = makeStore('calculations');
 
 const Bills = Object.assign(makeStore('bills'), {
-    isPaidThisMonth(b) {
-        const ym = currentYM();
-        return !!(b.history && b.history[ym]);
+    monthEntry(b, ym) {
+        if (!b || !b.history || !b.history[ym]) return null;
+        const v = b.history[ym];
+        // Backward compat: old boolean format
+        if (v === true) return { paid: true, amount: null, paidAt: null };
+        if (v && typeof v === 'object' && v.paid) return v;
+        return null;
     },
-    async togglePaid(id, ym) {
+    isPaidThisMonth(b) {
+        return !!Bills.monthEntry(b, currentYM());
+    },
+    async setPaid(id, ym, amount, paidAt) {
         const doc = await db.collection('bills').doc(id).get();
-        if (!doc.exists) return false;
+        if (!doc.exists) return;
         const data = doc.data();
         const history = data.history || {};
-        history[ym] = !history[ym];
+        history[ym] = {
+            paid: true,
+            amount: amount === null || amount === undefined || isNaN(amount) ? null : Number(amount),
+            paidAt: paidAt || null,
+        };
         await doc.ref.update({ history });
-        return history[ym];
+    },
+    async setUnpaid(id, ym) {
+        const doc = await db.collection('bills').doc(id).get();
+        if (!doc.exists) return;
+        const data = doc.data();
+        const history = data.history || {};
+        delete history[ym];
+        await doc.ref.update({ history });
     },
 });
 
