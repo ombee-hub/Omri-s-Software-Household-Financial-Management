@@ -135,6 +135,17 @@ header.app-header {
     width: 38px;
 }
 
+.logout-btn.logout-btn-danger {
+    color: var(--danger);
+    border-color: var(--danger);
+    background-color: transparent;
+}
+.logout-btn.logout-btn-danger:hover {
+    background-color: var(--danger);
+    color: white;
+    border-color: var(--danger);
+}
+
 .logout-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
 .logout-btn .btn-text { line-height: 1; }
 
