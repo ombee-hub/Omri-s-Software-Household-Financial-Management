@@ -70,14 +70,6 @@
         </div>
 
         <div class="card">
-            <h3 class="card-title" style="margin-bottom:14px">הפעולות שלי</h3>
-            <div style="display:flex;gap:10px;flex-wrap:wrap">
-                <button class="btn btn-primary" onclick="openModal('displayNameModal')" id="changeNameBtn">שנה שם תצוגה</button>
-                <button class="btn btn-outline" onclick="openModal('passwordModal')" id="changePwBtn">שנה סיסמה</button>
-            </div>
-        </div>
-
-        <div class="card">
             <h3 class="card-title" style="margin-bottom:14px">הוספה / הסרה של משתמשים</h3>
             <div class="info-box">
                 הוספה והסרה של משתמשים מתבצעת דרך
@@ -145,8 +137,6 @@
     <script>
         document.getElementById('closeBtn').innerHTML = ICONS.close;
         document.getElementById('dnCloseBtn').innerHTML = ICONS.close;
-        document.getElementById('changeNameBtn').innerHTML = ICONS.edit + '<span>שנה שם תצוגה</span>';
-        document.getElementById('changePwBtn').innerHTML = ICONS.edit + '<span>שנה סיסמה</span>';
 
         function escapeHtml(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
@@ -206,8 +196,8 @@
                     </div>
                     ${isMe ? `
                         <div class="user-actions">
-                            <button class="btn-icon" onclick="openModal('displayNameModal')" title="שנה שם תצוגה">${ICONS.edit}</button>
-                            <button class="btn-icon" onclick="openModal('passwordModal')" title="שנה סיסמה">🔒</button>
+                            <button class="btn btn-outline btn-sm" onclick="openModal('displayNameModal')">שנה שם</button>
+                            <button class="btn btn-outline btn-sm" onclick="openModal('passwordModal')">שנה סיסמה</button>
                         </div>
                     ` : ''}
                 </div>`;
