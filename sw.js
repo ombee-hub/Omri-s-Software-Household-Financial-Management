@@ -1,7 +1,7 @@
 // התוכנה של עמרי - Service Worker
 // Network-first for everything (always fresh content). Cache only as offline fallback.
 
-const CACHE_NAME = 'omri-app-v20';
+const CACHE_NAME = 'omri-app-v22';
 const STATIC_ASSETS = [
     './',
     './index.html',
