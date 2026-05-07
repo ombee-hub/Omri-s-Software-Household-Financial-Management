@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1e3a5f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="התוכנה של עמרי">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
+    <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
+    <title>התוכנה של עמרי - מחשבון</title>
+    <link rel="stylesheet" href="app.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
+    <style>
+        .calc-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 380px) 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        .calc-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 22px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .calc-display {
+            background: linear-gradient(135deg, #f8fafc, #eef2f7);
+            border-radius: var(--radius-sm);
+            padding: 22px 18px;
+            margin-bottom: 16px;
+            text-align: left;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            direction: ltr;
+        }
+
+        .calc-history-line {
+            color: var(--gray-dark);
+            font-size: 1rem;
+            font-family: 'Courier New', monospace;
+            min-height: 22px;
+            margin-bottom: 6px;
+            word-break: break-all;
+        }
+
+        .calc-current {
+            color: var(--dark);
+            font-size: 2.6rem;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            line-height: 1.1;
+            word-break: break-all;
+        }
+
+        .calc-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .calc-btn {
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 18px 0;
+            font-size: 1.4rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: var(--light);
+            color: var(--dark);
+            font-family: inherit;
+        }
+
+        .calc-btn:hover { background: #e2e8f0; transform: translateY(-1px); }
+        .calc-btn:active { transform: translateY(0); }
+
+        .calc-btn.calc-fn {
+            background: #cbd5e1;
+            color: var(--dark);
+        }
+        .calc-btn.calc-fn:hover { background: #94a3b8; color: white; }
+
+        .calc-btn.calc-op {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+        }
+        .calc-btn.calc-op:hover {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            transform: translateY(-1px);
+        }
+        .calc-btn.calc-op.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary) inset;
+        }
+
+        .calc-btn.calc-eq {
+            background: linear-gradient(135deg, var(--secondary), var(--secondary-dark));
+            color: white;
+        }
+        .calc-btn.calc-eq:hover {
+            background: linear-gradient(135deg, var(--secondary-dark), #1f6b25);
+            transform: translateY(-1px);
+        }
+
+        .calc-btn.calc-zero { grid-column: span 2; }
+
+        .history-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            transition: background-color 0.15s;
+            cursor: pointer;
+        }
+        .history-item:last-child { border-bottom: none; }
+        .history-item:hover { background-color: var(--light-2); }
+
+        .history-content { flex: 1; min-width: 0; }
+        .history-expr {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: var(--gray-dark);
+            direction: ltr;
+            text-align: left;
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+        .history-result {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--dark);
+            direction: ltr;
+            text-align: left;
+        }
+        .history-meta {
+            font-size: 0.78rem;
+            color: var(--gray);
+            margin-top: 4px;
+        }
+
+        @media (max-width: 900px) {
+            .calc-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 480px) {
+            .calc-current { font-size: 2.1rem; }
+            .calc-btn { padding: 14px 0; font-size: 1.2rem; }
+            .calc-buttons { gap: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="splash" id="splash"><img src="images/Omri's%20Software%20%E2%80%93%20Logo.png" alt="טוען..."></div>
+    <div id="appHeader"></div>
+
+    <div class="page-title-bar">
+        <div class="container">
+            <h2>מחשבון</h2>
+            <div class="subtitle">מחשבון לחישובים מהירים. כל חישוב נשמר בהיסטוריה ומשותף בין שני המשתמשים.</div>
+        </div>
+    </div>
+
+    <main class="container">
+        <div class="calc-layout">
+            <!-- CALCULATOR -->
+            <div class="calc-card">
+                <div class="calc-display">
+                    <div class="calc-history-line" id="calcHistory">&nbsp;</div>
+                    <div class="calc-current" id="calcDisplay">0</div>
+                </div>
+
+                <div class="calc-buttons">
+                    <button class="calc-btn calc-fn" data-action="clear">C</button>
+                    <button class="calc-btn calc-fn" data-action="sign">±</button>
+                    <button class="calc-btn calc-fn" data-action="percent">%</button>
+                    <button class="calc-btn calc-op" data-op="/">÷</button>
+
+                    <button class="calc-btn" data-digit="7">7</button>
+                    <button class="calc-btn" data-digit="8">8</button>
+                    <button class="calc-btn" data-digit="9">9</button>
+                    <button class="calc-btn calc-op" data-op="*">×</button>
+
+                    <button class="calc-btn" data-digit="4">4</button>
+                    <button class="calc-btn" data-digit="5">5</button>
+                    <button class="calc-btn" data-digit="6">6</button>
+                    <button class="calc-btn calc-op" data-op="-">−</button>
+
+                    <button class="calc-btn" data-digit="1">1</button>
+                    <button class="calc-btn" data-digit="2">2</button>
+                    <button class="calc-btn" data-digit="3">3</button>
+                    <button class="calc-btn calc-op" data-op="+">+</button>
+
+                    <button class="calc-btn calc-zero" data-digit="0">0</button>
+                    <button class="calc-btn" data-action="dot">.</button>
+                    <button class="calc-btn calc-eq" data-action="equals">=</button>
+                </div>
+            </div>
+
+            <!-- HISTORY -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">היסטוריה</h3>
+                    <button class="btn btn-outline btn-sm" onclick="clearHistory()" id="clearHistoryBtn">נקה הכל</button>
+                </div>
+                <div class="history-list" id="historyList">
+                    <div class="empty-state" style="padding:30px 10px">
+                        <div class="empty-icon">${''}</div>
+                        <h3 style="font-size:1rem">עדיין אין חישובים</h3>
+                        <p style="font-size:0.88rem">חישובים שתבצעו יופיעו כאן</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+    <script>
+        function escapeHtml(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+        }
+
+        // ===== Calculator state =====
+        let currentValue = '0';
+        let previousValue = null;
+        let pendingOp = null;
+        let justCalculated = false;
+
+        const display = document.getElementById('calcDisplay');
+        const historyLine = document.getElementById('calcHistory');
+
+        function updateDisplay() {
+            display.textContent = formatNumber(currentValue);
+            const expr = (previousValue !== null && pendingOp)
+                ? `${formatNumber(previousValue)} ${opSymbol(pendingOp)}`
+                : ' ';
+            historyLine.textContent = expr;
+            // Highlight active operator button
+            document.querySelectorAll('.calc-op').forEach(b => {
+                b.classList.toggle('active', b.dataset.op === pendingOp && !justCalculated);
+            });
+        }
+
+        function opSymbol(op) {
+            return { '+': '+', '-': '−', '*': '×', '/': '÷' }[op] || op;
+        }
+
+        function formatNumber(n) {
+            const s = String(n);
+            if (s === 'Error' || s === 'Infinity' || s === '-Infinity' || s === 'NaN') return 'שגיאה';
+            // For very large/small numbers, use exponential
+            const num = Number(s);
+            if (!isFinite(num)) return 'שגיאה';
+            if (Math.abs(num) > 1e15) return num.toExponential(8);
+            // Strip trailing zeros after decimal
+            if (s.includes('.') && !s.endsWith('.')) {
+                return s.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+            }
+            return s;
+        }
+
+        function inputDigit(d) {
+            if (justCalculated) {
+                currentValue = d;
+                previousValue = null;
+                pendingOp = null;
+                justCalculated = false;
+            } else if (currentValue === '0') {
+                currentValue = d;
+            } else {
+                if (currentValue.length >= 16) return; // limit length
+                currentValue += d;
+            }
+            updateDisplay();
+        }
+
+        function inputDot() {
+            if (justCalculated) {
+                currentValue = '0.';
+                justCalculated = false;
+                previousValue = null;
+                pendingOp = null;
+            } else if (!currentValue.includes('.')) {
+                currentValue += '.';
+            }
+            updateDisplay();
+        }
+
+        function inputOperator(op) {
+            if (pendingOp && previousValue !== null && !justCalculated) {
+                // Chain: compute previous first
+                compute(false);
+            }
+            previousValue = parseFloat(currentValue);
+            pendingOp = op;
+            justCalculated = true; // next digit replaces
+            updateDisplay();
+        }
+
+        function compute(saveToHistory = true) {
+            if (previousValue === null || pendingOp === null) return;
+            const a = previousValue;
+            const b = parseFloat(currentValue);
+            let result;
+            switch (pendingOp) {
+                case '+': result = a + b; break;
+                case '-': result = a - b; break;
+                case '*': result = a * b; break;
+                case '/': result = b === 0 ? NaN : a / b; break;
+                default: return;
+            }
+            const expression = `${a} ${opSymbol(pendingOp)} ${b}`;
+            const resultStr = isFinite(result)
+                ? String(Math.round(result * 1e10) / 1e10)
+                : 'שגיאה';
+
+            currentValue = resultStr === 'שגיאה' ? '0' : resultStr;
+            previousValue = null;
+            pendingOp = null;
+            justCalculated = true;
+            updateDisplay();
+
+            if (saveToHistory && resultStr !== 'שגיאה') {
+                saveCalculation(expression, resultStr);
+            }
+        }
+
+        function clearAll() {
+            currentValue = '0';
+            previousValue = null;
+            pendingOp = null;
+            justCalculated = false;
+            updateDisplay();
+        }
+
+        function toggleSign() {
+            if (currentValue === '0') return;
+            currentValue = currentValue.startsWith('-')
+                ? currentValue.slice(1)
+                : '-' + currentValue;
+            updateDisplay();
+        }
+
+        function percent() {
+            currentValue = String(parseFloat(currentValue) / 100);
+            justCalculated = true;
+            updateDisplay();
+        }
+
+        // ===== Wire buttons =====
+        document.querySelectorAll('.calc-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (btn.dataset.digit !== undefined) inputDigit(btn.dataset.digit);
+                else if (btn.dataset.op) inputOperator(btn.dataset.op);
+                else if (btn.dataset.action === 'dot') inputDot();
+                else if (btn.dataset.action === 'equals') compute(true);
+                else if (btn.dataset.action === 'clear') clearAll();
+                else if (btn.dataset.action === 'sign') toggleSign();
+                else if (btn.dataset.action === 'percent') percent();
+            });
+        });
+
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            const k = e.key;
+            if (/^[0-9]$/.test(k)) { inputDigit(k); e.preventDefault(); }
+            else if (k === '.') { inputDot(); e.preventDefault(); }
+            else if (k === '+' || k === '-' || k === '*' || k === '/') { inputOperator(k); e.preventDefault(); }
+            else if (k === 'Enter' || k === '=') { compute(true); e.preventDefault(); }
+            else if (k === 'Escape' || k === 'c' || k === 'C') { clearAll(); e.preventDefault(); }
+            else if (k === '%') { percent(); e.preventDefault(); }
+            else if (k === 'Backspace') {
+                if (justCalculated) { clearAll(); }
+                else if (currentValue.length > 1) { currentValue = currentValue.slice(0, -1); updateDisplay(); }
+                else { currentValue = '0'; updateDisplay(); }
+                e.preventDefault();
+            }
+        });
+
+        // ===== History =====
+        let calcHistoryData = [];
+        let cachedDisplayNames = {}; // uid -> displayName
+
+        async function saveCalculation(expression, result) {
+            try {
+                await Calculations.add({
+                    expression,
+                    result,
+                });
+            } catch (err) {
+                console.error('Save calculation failed', err);
+            }
+        }
+
+        function fmtCalcTime(ts) {
+            if (!ts) return '';
+            const d = ts.toDate ? ts.toDate() : new Date(ts);
+            if (isNaN(d)) return '';
+            const diff = Date.now() - d.getTime();
+            if (diff < 60000) return 'עכשיו';
+            const min = Math.floor(diff / 60000);
+            if (min < 60) return 'לפני ' + min + ' דק׳';
+            const hr = Math.floor(min / 60);
+            if (hr < 24) return 'לפני ' + hr + ' שעות';
+            return d.toLocaleDateString('he-IL') + ' ' + d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('historyList');
+            if (calcHistoryData.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state" style="padding:30px 10px">
+                        <h3 style="font-size:1rem">עדיין אין חישובים</h3>
+                        <p style="font-size:0.88rem">חישובים שתבצעו יופיעו כאן</p>
+                    </div>`;
+                return;
+            }
+
+            list.innerHTML = calcHistoryData.slice(0, 50).map(c => {
+                const userName = cachedDisplayNames[c.createdBy] || '';
+                return `
+                <div class="history-item" onclick="reuseResult('${escapeHtml(c.result)}')">
+                    <div class="history-content">
+                        <div class="history-expr">${escapeHtml(c.expression)} =</div>
+                        <div class="history-result">${escapeHtml(c.result)}</div>
+                        <div class="history-meta">
+                            ${userName ? escapeHtml(userName) + ' · ' : ''}${escapeHtml(fmtCalcTime(c.createdAt))}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function reuseResult(result) {
+            currentValue = result;
+            previousValue = null;
+            pendingOp = null;
+            justCalculated = true;
+            updateDisplay();
+        }
+
+        async function clearHistory() {
+            if (!confirm('למחוק את כל ההיסטוריה? פעולה זו אינה הפיכה.')) return;
+            try {
+                const all = await Calculations.all();
+                await Promise.all(all.map(c => Calculations.remove(c.id)));
+            } catch (err) {
+                alert('שגיאה במחיקה: ' + err.message);
+            }
+        }
+
+        async function loadDisplayNames() {
+            try {
+                const snap = await db.collection('users').get();
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    cachedDisplayNames[doc.id] = d.displayName || d.email || '';
+                });
+            } catch (e) {}
+        }
+
+        document.addEventListener('auth:ready', async () => {
+            await loadDisplayNames();
+            Calculations.subscribe(items => { calcHistoryData = items; renderHistory(); });
+        });
+
+        updateDisplay();
+    </script>
+</body>
+</html>

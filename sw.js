@@ -2,7 +2,7 @@
 // Network-first for HTML/JS/CSS so updates always win.
 // Cache-first only for images and the SDK CDNs.
 
-const CACHE_NAME = 'omri-app-v16';
+const CACHE_NAME = 'omri-app-v17';
 const STATIC_ASSETS = [
     './',
     './index.html',
@@ -12,6 +12,7 @@ const STATIC_ASSETS = [
     './tasks.html',
     './documents.html',
     './users.html',
+    './calculator.html',
     './app.css',
     './app.js',
     './firebase-init.js',
