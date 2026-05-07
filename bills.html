@@ -134,8 +134,11 @@
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">יום תשלום בחודש</label>
-                        <input type="number" id="billDueDay" class="form-input" min="1" max="31" placeholder="10">
+                        <label class="form-label">סטטוס תשלום החודש</label>
+                        <select id="billPaidStatus" class="form-select">
+                            <option value="unpaid">לא שולם</option>
+                            <option value="paid">שולם</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label class="form-label">אמצעי תשלום</label>
@@ -206,7 +209,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=4"></script>
     <script>
         document.getElementById('addBillBtn').innerHTML = ICONS.plus + '<span>הוסף חשבון</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
@@ -284,7 +287,7 @@
             container.innerHTML = `
                 <table class="data-table">
                     <thead>
-                        <tr><th>חשבון</th><th>קטגוריה</th><th>סכום</th><th>יום</th><th>אמצעי תשלום</th><th>קובץ</th><th>סטטוס</th><th></th></tr>
+                        <tr><th>חשבון</th><th>קטגוריה</th><th>סכום</th><th>אמצעי תשלום</th><th>קובץ</th><th>סטטוס</th><th></th></tr>
                     </thead>
                     <tbody>
                         ${sorted.map(b => {
@@ -302,7 +305,6 @@
                                 <td><strong>${escapeHtml(b.name)}</strong>${b.notes ? '<br><small style="color:var(--gray-dark)">' + escapeHtml(b.notes) + '</small>' : ''}${paidAmountText}</td>
                                 <td>${cat.label}</td>
                                 <td>${fmtCurrency(b.amount)}</td>
-                                <td>${b.dueDay || '—'}</td>
                                 <td>${escapeHtml(cardLabel)}</td>
                                 <td>${fileBtn}</td>
                                 <td>
@@ -487,7 +489,7 @@
                     document.getElementById('billName').value = b.name || '';
                     document.getElementById('billCategory').value = b.category || '';
                     document.getElementById('billAmount').value = b.amount || '';
-                    document.getElementById('billDueDay').value = b.dueDay || '';
+                    document.getElementById('billPaidStatus').value = billMonthEntry(b, currentYM()) ? 'paid' : 'unpaid';
                     document.getElementById('billCardName').value = b.cardName || '';
                     document.getElementById('billNotes').value = b.notes || '';
                     document.getElementById('billModalTitle').textContent = 'עריכת חשבון';
@@ -510,11 +512,12 @@
             const errEl = document.getElementById('billSaveError');
             errEl.style.display = 'none';
             const id = document.getElementById('billId').value;
+            const paidStatus = document.getElementById('billPaidStatus').value;
+            const amount = Number(document.getElementById('billAmount').value) || 0;
             const data = {
                 name: document.getElementById('billName').value.trim(),
                 category: document.getElementById('billCategory').value,
-                amount: Number(document.getElementById('billAmount').value) || 0,
-                dueDay: Number(document.getElementById('billDueDay').value) || null,
+                amount: amount,
                 cardName: document.getElementById('billCardName').value.trim() || null,
                 notes: document.getElementById('billNotes').value.trim(),
                 fileData: currentBillFile ? currentBillFile.dataUrl : null,
@@ -526,8 +529,19 @@
             btn.disabled = true;
             btn.textContent = 'שומר...';
             try {
+                let savedId = id;
                 if (id) await Bills.update(id, data);
-                else await Bills.add(data);
+                else {
+                    const added = await Bills.add(data);
+                    savedId = added && added.id;
+                }
+                // Apply paid status for current month
+                const ym = currentYM();
+                if (paidStatus === 'paid') {
+                    await billSetPaid(savedId, ym, amount, todayISO());
+                } else {
+                    await billSetUnpaid(savedId, ym);
+                }
                 closeModal('billModal');
             } catch (err) {
                 errEl.textContent = 'שגיאה בשמירה: ' + err.message;
