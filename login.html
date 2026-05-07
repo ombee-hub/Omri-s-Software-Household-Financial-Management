@@ -284,18 +284,25 @@
             const password = document.getElementById('password').value;
             const errEl = document.getElementById('errorMessage');
 
-            const user = await Users.authenticate(username, password);
-            if (user) {
-                localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify({
-                    id: user.id,
-                    username: user.username,
-                    displayName: user.displayName,
-                    loginAt: new Date().toISOString(),
-                }));
-                window.location.href = 'index.html';
-            } else {
+            try {
+                const user = await Users.authenticate(username, password);
+                if (user) {
+                    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify({
+                        id: user.id,
+                        username: user.username,
+                        displayName: user.displayName,
+                        loginAt: new Date().toISOString(),
+                    }));
+                    window.location.href = 'index.html';
+                } else {
+                    errEl.classList.add('show');
+                    document.getElementById('password').value = '';
+                    console.warn('Login failed: username or password incorrect');
+                }
+            } catch (err) {
+                errEl.textContent = 'שגיאה בהתחברות: ' + (err.message || err);
                 errEl.classList.add('show');
-                document.getElementById('password').value = '';
+                console.error('Login error:', err);
             }
         }
 

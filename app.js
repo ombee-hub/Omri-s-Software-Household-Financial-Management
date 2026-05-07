@@ -33,11 +33,72 @@ const ICONS = {
 };
 
 // ===== Crypto helper for password hashing =====
+// Uses Web Crypto when available (HTTPS / localhost / http), falls back to a
+// pure-JS implementation when not available (e.g. file:// in modern Chrome).
 async function sha256(text) {
-    const buf = new TextEncoder().encode(text);
-    const hashBuf = await crypto.subtle.digest('SHA-256', buf);
-    return Array.from(new Uint8Array(hashBuf))
-        .map(b => b.toString(16).padStart(2, '0')).join('');
+    if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function') {
+        try {
+            const buf = new TextEncoder().encode(text);
+            const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+            return Array.from(new Uint8Array(hashBuf))
+                .map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) {
+            // fall through to pure-JS implementation below
+        }
+    }
+    return sha256Sync(text);
+}
+
+// Pure-JS SHA-256 (FIPS 180-4) - fallback for environments without crypto.subtle
+function sha256Sync(message) {
+    const K = [
+        0x428a2f98|0,0x71374491|0,0xb5c0fbcf|0,0xe9b5dba5|0,0x3956c25b|0,0x59f111f1|0,0x923f82a4|0,0xab1c5ed5|0,
+        0xd807aa98|0,0x12835b01|0,0x243185be|0,0x550c7dc3|0,0x72be5d74|0,0x80deb1fe|0,0x9bdc06a7|0,0xc19bf174|0,
+        0xe49b69c1|0,0xefbe4786|0,0x0fc19dc6|0,0x240ca1cc|0,0x2de92c6f|0,0x4a7484aa|0,0x5cb0a9dc|0,0x76f988da|0,
+        0x983e5152|0,0xa831c66d|0,0xb00327c8|0,0xbf597fc7|0,0xc6e00bf3|0,0xd5a79147|0,0x06ca6351|0,0x14292967|0,
+        0x27b70a85|0,0x2e1b2138|0,0x4d2c6dfc|0,0x53380d13|0,0x650a7354|0,0x766a0abb|0,0x81c2c92e|0,0x92722c85|0,
+        0xa2bfe8a1|0,0xa81a664b|0,0xc24b8b70|0,0xc76c51a3|0,0xd192e819|0,0xd6990624|0,0xf40e3585|0,0x106aa070|0,
+        0x19a4c116|0,0x1e376c08|0,0x2748774c|0,0x34b0bcb5|0,0x391c0cb3|0,0x4ed8aa4a|0,0x5b9cca4f|0,0x682e6ff3|0,
+        0x748f82ee|0,0x78a5636f|0,0x84c87814|0,0x8cc70208|0,0x90befffa|0,0xa4506ceb|0,0xbef9a3f7|0,0xc67178f2|0
+    ];
+    const H = [0x6a09e667|0,0xbb67ae85|0,0x3c6ef372|0,0xa54ff53a|0,0x510e527f|0,0x9b05688c|0,0x1f83d9ab|0,0x5be0cd19|0];
+
+    const utf8 = new TextEncoder().encode(message);
+    const len = utf8.length;
+    const padLen = ((len + 9 + 63) >> 6) << 6;
+    const bytes = new Uint8Array(padLen);
+    bytes.set(utf8);
+    bytes[len] = 0x80;
+    const view = new DataView(bytes.buffer);
+    view.setBigUint64(padLen - 8, BigInt(len) * 8n, false);
+
+    const rotr = (n, x) => (x >>> n) | (x << (32 - n));
+
+    for (let i = 0; i < padLen; i += 64) {
+        const W = new Int32Array(64);
+        for (let t = 0; t < 16; t++) W[t] = view.getInt32(i + t * 4, false);
+        for (let t = 16; t < 64; t++) {
+            const s0 = rotr(7, W[t-15]) ^ rotr(18, W[t-15]) ^ (W[t-15] >>> 3);
+            const s1 = rotr(17, W[t-2]) ^ rotr(19, W[t-2]) ^ (W[t-2] >>> 10);
+            W[t] = (W[t-16] + s0 + W[t-7] + s1) | 0;
+        }
+        let a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+        for (let t = 0; t < 64; t++) {
+            const S1 = rotr(6, e) ^ rotr(11, e) ^ rotr(25, e);
+            const ch = (e & f) ^ (~e & g);
+            const temp1 = (h + S1 + ch + K[t] + W[t]) | 0;
+            const S0 = rotr(2, a) ^ rotr(13, a) ^ rotr(22, a);
+            const maj = (a & b) ^ (a & c) ^ (b & c);
+            const temp2 = (S0 + maj) | 0;
+            h = g; g = f; f = e;
+            e = (d + temp1) | 0;
+            d = c; c = b; b = a;
+            a = (temp1 + temp2) | 0;
+        }
+        H[0]=(H[0]+a)|0; H[1]=(H[1]+b)|0; H[2]=(H[2]+c)|0; H[3]=(H[3]+d)|0;
+        H[4]=(H[4]+e)|0; H[5]=(H[5]+f)|0; H[6]=(H[6]+g)|0; H[7]=(H[7]+h)|0;
+    }
+    return H.map(x => (x >>> 0).toString(16).padStart(8, '0')).join('');
 }
 
 // ===== Current logged-in user =====
