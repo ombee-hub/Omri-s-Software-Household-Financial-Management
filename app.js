@@ -4,11 +4,25 @@
 const LOGO_PATH = "Omri's%20Software%20%E2%80%93%20Household%20Financial%20Management.png";
 const SPLASH_LOGO_PATH = "Omri's%20Software%20%E2%80%93%20Logo.png";
 
-// ===== Splash screen (spinning logo on initial load) =====
+// ===== Splash screen - shows ONLY on the first page load of a session =====
+const SPLASH_KEY = 'omri_splash_shown';
 const SPLASH_MIN_MS = 1200;
 const SPLASH_START = Date.now();
+const SPLASH_ALREADY_SHOWN = sessionStorage.getItem(SPLASH_KEY) === '1';
+
+(function initSplash() {
+    const el = document.getElementById('splash');
+    if (!el) return;
+    if (SPLASH_ALREADY_SHOWN) {
+        // Not the first page in this session - hide immediately
+        el.remove();
+    } else {
+        sessionStorage.setItem(SPLASH_KEY, '1');
+    }
+})();
 
 function hideSplash() {
+    if (SPLASH_ALREADY_SHOWN) return; // already removed
     const elapsed = Date.now() - SPLASH_START;
     const wait = Math.max(0, SPLASH_MIN_MS - elapsed);
     setTimeout(() => {
