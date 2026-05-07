@@ -17,3 +17,13 @@ const db = firebase.firestore();
 
 // Persist login across browser sessions ("remember me")
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+
+// Enable Firestore offline persistence - app works even without internet.
+// Data is cached locally (IndexedDB) and changes sync when connection returns.
+db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
+    if (err && err.code === 'failed-precondition') {
+        console.warn('Offline persistence: multiple tabs open, only one tab can persist');
+    } else if (err && err.code === 'unimplemented') {
+        console.warn('Offline persistence: browser does not support it');
+    }
+});
