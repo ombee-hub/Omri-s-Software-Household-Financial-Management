@@ -145,7 +145,7 @@ function logout() {
             <p style="color:var(--gray-dark);margin-bottom:20px;font-size:0.95rem">תצטרך להזין שוב את הסיסמה בכניסה הבאה.</p>
             <div style="display:flex;gap:10px;justify-content:center">
                 <button class="btn btn-primary" id="confirmLogoutBtn" style="min-width:120px">כן, התנתק</button>
-                <button class="btn btn-outline" id="cancelLogoutBtn" style="min-width:120px">ביטול</button>
+                <button class="btn btn-danger" id="cancelLogoutBtn" style="min-width:120px">יציאה</button>
             </div>
         </div>
     `;
