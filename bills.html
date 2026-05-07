@@ -221,7 +221,7 @@
 
                 <div class="modal-footer">
                     <button type="submit" class="btn btn-primary" id="saveBillBtn">שמירה</button>
-                    <button type="button" class="btn btn-outline" onclick="closeModal('billModal')">ביטול</button>
+                    <button type="button" class="btn btn-danger" onclick="closeModal('billModal')">ביטול</button>
                 </div>
             </form>
         </div>
@@ -259,13 +259,13 @@
 
                 <div class="modal-footer">
                     <button type="submit" class="btn btn-primary">שמירת תשלום</button>
-                    <button type="button" class="btn btn-outline" onclick="closeModal('payModal')">ביטול</button>
+                    <button type="button" class="btn btn-danger" onclick="closeModal('payModal')">ביטול</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <script src="app.js?v=19"></script>
+    <script src="app.js?v=20"></script>
     <script>
         document.getElementById('addBillBtn').innerHTML = ICONS.plus + '<span>הוסף חשבון</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;

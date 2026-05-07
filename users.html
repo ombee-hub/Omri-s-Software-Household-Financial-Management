@@ -100,7 +100,7 @@
                 <div id="dnSuccess" style="color:var(--success);font-size:0.9rem;margin-bottom:10px;display:none">השם עודכן בהצלחה</div>
                 <div class="modal-footer">
                     <button type="submit" class="btn btn-primary" id="saveDnBtn">שמירה</button>
-                    <button type="button" class="btn btn-outline" onclick="closeModal('displayNameModal')">ביטול</button>
+                    <button type="button" class="btn btn-danger" onclick="closeModal('displayNameModal')">ביטול</button>
                 </div>
             </form>
         </div>
@@ -130,13 +130,13 @@
                 <div id="pwSuccess" style="color:var(--success);font-size:0.9rem;margin-bottom:10px;display:none">הסיסמה שונתה בהצלחה</div>
                 <div class="modal-footer">
                     <button type="submit" class="btn btn-primary" id="savePwBtn">שמירה</button>
-                    <button type="button" class="btn btn-outline" onclick="closeModal('passwordModal')">ביטול</button>
+                    <button type="button" class="btn btn-danger" onclick="closeModal('passwordModal')">ביטול</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <script src="app.js?v=19"></script>
+    <script src="app.js?v=20"></script>
     <script>
         document.getElementById('closeBtn').innerHTML = ICONS.close;
         document.getElementById('dnCloseBtn').innerHTML = ICONS.close;
