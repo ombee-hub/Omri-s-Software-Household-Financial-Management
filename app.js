@@ -417,18 +417,10 @@ const Bills = Object.assign(makeStore('bills'), {
     },
 });
 
-// ===== Service worker registration with auto-update =====
-if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
-    let isReloading = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (isReloading) return;
-        isReloading = true;
-        window.location.reload();
-    });
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').then((reg) => {
-            // Check for updates on every page load
-            reg.update().catch(() => {});
-        }).catch(() => {});
-    });
+// ===== Service worker disabled - browser cache only, updates always fresh =====
+// If a service worker was previously registered, unregister it.
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.unregister());
+    }).catch(() => {});
 }
