@@ -5,7 +5,7 @@ const LOGO_PATH = "Omri's%20Software%20%E2%80%93%20Household%20Financial%20Manag
 const SPLASH_LOGO_PATH = "Omri's%20Software%20%E2%80%93%20Logo.png";
 
 // ===== Splash screen (spinning logo on initial load) =====
-const SPLASH_MIN_MS = 700;
+const SPLASH_MIN_MS = 1200;
 const SPLASH_START = Date.now();
 
 function hideSplash() {
@@ -207,6 +207,26 @@ auth.onAuthStateChanged((user) => {
 
 // Fallback: hide splash after 3s even if auth never resolves (offline w/ no cache)
 setTimeout(() => hideSplash(), 3000);
+
+// ===== Auto-logout on long inactivity =====
+// If user backgrounds the app/tab for over 10 minutes, force logout for security.
+const LOGOUT_AFTER_HIDDEN_MS = 10 * 60 * 1000; // 10 minutes
+let hiddenTimerId = null;
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        hiddenTimerId = setTimeout(() => {
+            auth.signOut().finally(() => {
+                window.location.replace(AUTH_PAGE);
+            });
+        }, LOGOUT_AFTER_HIDDEN_MS);
+    } else {
+        if (hiddenTimerId) {
+            clearTimeout(hiddenTimerId);
+            hiddenTimerId = null;
+        }
+    }
+});
 
 // ===== Categories =====
 const BILL_CATEGORIES = [
