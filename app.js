@@ -2,6 +2,23 @@
 // Requires firebase-init.js to be loaded first (auth + db globals)
 
 const LOGO_PATH = "Omri's%20Software%20%E2%80%93%20Household%20Financial%20Management.png";
+const SPLASH_LOGO_PATH = "Omri's%20Software%20%E2%80%93%20Logo.png";
+
+// ===== Splash screen (spinning logo on initial load) =====
+const SPLASH_MIN_MS = 700;
+const SPLASH_START = Date.now();
+
+function hideSplash() {
+    const elapsed = Date.now() - SPLASH_START;
+    const wait = Math.max(0, SPLASH_MIN_MS - elapsed);
+    setTimeout(() => {
+        const el = document.getElementById('splash');
+        if (el) {
+            el.classList.add('hide');
+            setTimeout(() => el.remove(), 600);
+        }
+    }, wait);
+}
 
 // ===== SVG Icons (Lucide-style, clean line icons) =====
 const ICONS = {
@@ -184,7 +201,12 @@ auth.onAuthStateChanged((user) => {
         // Notify app that auth is ready
         document.dispatchEvent(new CustomEvent('auth:ready', { detail: { user } }));
     }
+    // Hide the splash screen now that we know the auth state
+    hideSplash();
 });
+
+// Fallback: hide splash after 3s even if auth never resolves (offline w/ no cache)
+setTimeout(() => hideSplash(), 3000);
 
 // ===== Categories =====
 const BILL_CATEGORIES = [

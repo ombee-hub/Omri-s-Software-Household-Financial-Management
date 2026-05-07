@@ -736,6 +736,40 @@ main { padding-bottom: 60px; }
     flex-wrap: wrap;
 }
 
+/* ===== Splash screen with spinning logo (shows on page load) ===== */
+.splash {
+    position: fixed;
+    inset: 0;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+
+.splash.hide {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.splash img {
+    width: 200px;
+    height: auto;
+    animation: splash-spin 1.6s linear infinite;
+    filter: drop-shadow(0 6px 20px rgba(30, 58, 95, 0.18));
+}
+
+@keyframes splash-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+    .splash img { width: 140px; }
+}
+
 /* ===== Bottom navigation (mobile only) ===== */
 .app-bottom-nav {
     display: none;
