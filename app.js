@@ -129,14 +129,38 @@ function confirmDelete(name) {
 }
 
 // ===== Logout =====
-async function logout() {
-    if (!confirm('להתנתק מהתוכנה?')) return;
-    try {
-        await auth.signOut();
-    } catch (e) {
-        console.error('logout error', e);
+function logout() {
+    // Show floating confirmation modal (not the ugly browser confirm())
+    if (document.getElementById('logoutConfirmModal')) {
+        document.getElementById('logoutConfirmModal').classList.add('show');
+        return;
     }
-    window.location.href = 'login.html';
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop show';
+    modal.id = 'logoutConfirmModal';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:380px;text-align:center">
+            <div style="font-size:3rem;margin-bottom:8px">👋</div>
+            <h3 style="font-size:1.2rem;font-weight:700;color:var(--dark);margin-bottom:8px">להתנתק?</h3>
+            <p style="color:var(--gray-dark);margin-bottom:20px;font-size:0.95rem">תצטרך להזין שוב את הסיסמה בכניסה הבאה.</p>
+            <div style="display:flex;gap:10px;justify-content:center">
+                <button class="btn btn-primary" id="confirmLogoutBtn" style="min-width:120px">כן, התנתק</button>
+                <button class="btn btn-outline" id="cancelLogoutBtn" style="min-width:120px">ביטול</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    document.getElementById('cancelLogoutBtn').addEventListener('click', () => {
+        modal.remove();
+    });
+    document.getElementById('confirmLogoutBtn').addEventListener('click', async () => {
+        modal.querySelector('#confirmLogoutBtn').textContent = 'מתנתק...';
+        modal.querySelector('#confirmLogoutBtn').disabled = true;
+        try { await auth.signOut(); } catch (e) { console.error('logout error', e); }
+        window.location.href = 'login.html';
+    });
+    // Click outside or Esc closes
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
 
 // ===== Render the shared app header =====
