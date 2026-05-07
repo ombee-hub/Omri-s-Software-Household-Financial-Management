@@ -206,7 +206,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=2"></script>
+    <script src="app.js?v=3"></script>
     <script>
         document.getElementById('addBillBtn').innerHTML = ICONS.plus + '<span>הוסף חשבון</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
@@ -224,6 +224,34 @@
 
         let billsData = [];
         let currentBillFile = null; // { dataUrl, type, name, size }
+
+        // Defensive helpers - work even if app.js is cached old version
+        function billMonthEntry(b, ym) {
+            if (typeof Bills !== 'undefined' && typeof Bills.monthEntry === 'function') return Bills.monthEntry(b, ym);
+            if (!b || !b.history || !b.history[ym]) return null;
+            const v = b.history[ym];
+            if (v === true) return { paid: true, amount: null, paidAt: null };
+            if (v && typeof v === 'object' && v.paid) return v;
+            return null;
+        }
+        async function billSetPaid(id, ym, amount, paidAt) {
+            if (typeof Bills !== 'undefined' && typeof Bills.setPaid === 'function') return Bills.setPaid(id, ym, amount, paidAt);
+            const ref = db.collection('bills').doc(id);
+            const doc = await ref.get();
+            if (!doc.exists) return;
+            const history = doc.data().history || {};
+            history[ym] = { paid: true, amount: amount || null, paidAt: paidAt || null };
+            await ref.update({ history });
+        }
+        async function billSetUnpaid(id, ym) {
+            if (typeof Bills !== 'undefined' && typeof Bills.setUnpaid === 'function') return billSetUnpaid(id, ym);
+            const ref = db.collection('bills').doc(id);
+            const doc = await ref.get();
+            if (!doc.exists) return;
+            const history = doc.data().history || {};
+            delete history[ym];
+            await ref.update({ history });
+        }
 
         function escapeHtml(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
@@ -262,7 +290,7 @@
                         ${sorted.map(b => {
                             const cat = getBillCategory(b.category);
                             const cardLabel = b.cardName || '—';
-                            const entry = Bills.monthEntry(b, currentYM());
+                            const entry = billMonthEntry(b, currentYM());
                             const paid = !!entry;
                             const paidAmountText = paid && entry.amount ? `<br><small style="color:var(--gray-dark)">שולם ${fmtCurrency(entry.amount)}${entry.paidAt ? ' ב-' + fmtDate(entry.paidAt) : ''}</small>` : '';
                             const fileBtn = b.fileData ? (
@@ -520,7 +548,7 @@
                 // Already paid - confirm before unmarking
                 if (confirm(`לבטל את סימון התשלום של "${bill.name}" לחודש זה?`)) {
                     try {
-                        await Bills.setUnpaid(id, ym);
+                        await billSetUnpaid(id, ym);
                     } catch (err) { alert('שגיאה: ' + err.message); }
                 }
                 return;
@@ -544,7 +572,7 @@
             const amount = Number(document.getElementById('payAmount').value);
             const date = document.getElementById('payDate').value || todayISO();
             try {
-                await Bills.setPaid(id, currentYM(), amount, date);
+                await billSetPaid(id, currentYM(), amount, date);
                 closeModal('payModal');
             } catch (err) {
                 alert('שגיאה: ' + err.message);
