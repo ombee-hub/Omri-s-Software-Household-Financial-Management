@@ -280,9 +280,9 @@
 
         function inputDigit(d) {
             if (justCalculated) {
+                // Next digit replaces - but keep previousValue/pendingOp
+                // so "5 + 3" works (after pressing +, then 3)
                 currentValue = d;
-                previousValue = null;
-                pendingOp = null;
                 justCalculated = false;
             } else if (currentValue === '0') {
                 currentValue = d;
@@ -297,8 +297,6 @@
             if (justCalculated) {
                 currentValue = '0.';
                 justCalculated = false;
-                previousValue = null;
-                pendingOp = null;
             } else if (!currentValue.includes('.')) {
                 currentValue += '.';
             }
@@ -312,7 +310,7 @@
             }
             previousValue = parseFloat(currentValue);
             pendingOp = op;
-            justCalculated = true; // next digit replaces
+            justCalculated = true; // next digit replaces currentValue
             updateDisplay();
         }
 
