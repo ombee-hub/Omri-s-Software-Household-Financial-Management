@@ -49,7 +49,7 @@
         </div>
     </main>
 
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=7"></script>
     <script>
         document.getElementById('todaySubtitle').textContent =
             'היום, ' + new Date().toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -105,10 +105,10 @@
                 return;
             }
 
-            const sorted = [...billsData].sort((a, b) => (a.dueDay || 31) - (b.dueDay || 31));
+            const sorted = [...billsData].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'));
             container.innerHTML = `
                 <table class="data-table">
-                    <thead><tr><th>חשבון</th><th>קטגוריה</th><th>סכום</th><th>יום בחודש</th><th>סטטוס</th></tr></thead>
+                    <thead><tr><th>חשבון</th><th>קטגוריה</th><th>סכום</th><th>סטטוס</th></tr></thead>
                     <tbody>
                         ${sorted.map(b => {
                             const cat = getBillCategory(b.category);
@@ -117,7 +117,6 @@
                                 <td><strong>${escapeHtml(b.name)}</strong></td>
                                 <td>${cat.label}</td>
                                 <td>${fmtCurrency(b.amount)}</td>
-                                <td>${b.dueDay ? b.dueDay + ' לחודש' : '—'}</td>
                                 <td>${paid
                                     ? '<span class="badge badge-success">שולם</span>'
                                     : '<span class="badge badge-warning">ממתין</span>'}</td>
