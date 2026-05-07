@@ -1,8 +1,7 @@
 // התוכנה של עמרי - Service Worker
-// Network-first for HTML/JS/CSS so updates always win.
-// Cache-first only for images and the SDK CDNs.
+// Network-first for everything (always fresh content). Cache only as offline fallback.
 
-const CACHE_NAME = 'omri-app-v18';
+const CACHE_NAME = 'omri-app-v19';
 const STATIC_ASSETS = [
     './',
     './index.html',
@@ -36,9 +35,8 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keys) =>
             Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-        )
+        ).then(() => self.clients.claim())
     );
-    self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
@@ -46,42 +44,28 @@ self.addEventListener('fetch', (event) => {
 
     const url = new URL(event.request.url);
 
-    // Bypass cache entirely for Firebase APIs
+    // Bypass cache entirely for Firebase APIs and external CDNs
     if (url.hostname.includes('firebase') ||
         url.hostname.includes('firestore') ||
         url.hostname.includes('googleapis.com') ||
         url.hostname.includes('gstatic.com') ||
         url.hostname.includes('sheetjs.com')) {
-        return; // network only
+        return; // network only, browser default
     }
 
-    // For our own HTML/JS/CSS - network-first so updates always apply,
-    // fall back to cache only if offline
-    const isCodeFile = /\.(html|js|css|json)$/i.test(url.pathname) || url.pathname.endsWith('/');
-    if (isCodeFile) {
-        event.respondWith(
-            fetch(event.request).then((response) => {
-                if (response && response.status === 200) {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then((c) => c.put(event.request, clone)).catch(() => {});
-                }
-                return response;
-            }).catch(() => caches.match(event.request).then(c => c || caches.match('./index.html')))
-        );
-        return;
-    }
-
-    // Images and other static assets - cache-first
+    // Network-first for ALL same-origin assets - always serve latest content,
+    // fall back to cache when offline.
     event.respondWith(
-        caches.match(event.request).then((cached) => {
-            if (cached) return cached;
-            return fetch(event.request).then((response) => {
-                if (response && response.status === 200 && response.type !== 'opaque') {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then((c) => c.put(event.request, clone)).catch(() => {});
-                }
-                return response;
-            });
-        })
+        fetch(event.request).then((response) => {
+            if (response && response.status === 200 && response.type !== 'opaque') {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then((c) => c.put(event.request, clone)).catch(() => {});
+            }
+            return response;
+        }).catch(() =>
+            caches.match(event.request).then(c =>
+                c || (event.request.mode === 'navigate' ? caches.match('./index.html') : undefined)
+            )
+        )
     );
 });
