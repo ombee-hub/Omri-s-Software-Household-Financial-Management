@@ -2,7 +2,7 @@
 // Network-first for HTML/JS/CSS so updates always win.
 // Cache-first only for images and the SDK CDNs.
 
-const CACHE_NAME = 'omri-app-v17';
+const CACHE_NAME = 'omri-app-v18';
 const STATIC_ASSETS = [
     './',
     './index.html',

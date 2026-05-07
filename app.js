@@ -416,3 +416,19 @@ const Bills = Object.assign(makeStore('bills'), {
         return history[ym];
     },
 });
+
+// ===== Service worker registration with auto-update =====
+if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
+    let isReloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (isReloading) return;
+        isReloading = true;
+        window.location.reload();
+    });
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then((reg) => {
+            // Check for updates on every page load
+            reg.update().catch(() => {});
+        }).catch(() => {});
+    });
+}
