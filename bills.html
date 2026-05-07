@@ -209,7 +209,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=5"></script>
+    <script src="app.js?v=6"></script>
     <script>
         document.getElementById('addBillBtn').innerHTML = ICONS.plus + '<span>הוסף חשבון</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
@@ -248,7 +248,7 @@
             await ref.update({ history });
         }
         async function billSetUnpaid(id, ym) {
-            if (typeof Bills !== 'undefined' && typeof Bills.setUnpaid === 'function') return billSetUnpaid(id, ym);
+            if (typeof Bills !== 'undefined' && typeof Bills.setUnpaid === 'function') return Bills.setUnpaid(id, ym);
             const ref = db.collection('bills').doc(id);
             const doc = await ref.get();
             if (!doc.exists) return;
