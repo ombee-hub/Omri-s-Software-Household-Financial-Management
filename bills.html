@@ -209,7 +209,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=4"></script>
+    <script src="app.js?v=5"></script>
     <script>
         document.getElementById('addBillBtn').innerHTML = ICONS.plus + '<span>הוסף חשבון</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
@@ -227,6 +227,7 @@
 
         let billsData = [];
         let currentBillFile = null; // { dataUrl, type, name, size }
+        let billFileChanged = false; // whether the file changed in this edit session
 
         // Defensive helpers - work even if app.js is cached old version
         function billMonthEntry(b, ym) {
@@ -358,6 +359,7 @@
                 } else {
                     throw new Error('סוג קובץ לא נתמך - רק תמונות או PDF');
                 }
+                billFileChanged = true;
                 renderBillFilePreview();
             } catch (err) {
                 errEl.textContent = err.message;
@@ -396,6 +398,7 @@
 
         function removeBillFile() {
             currentBillFile = null;
+            billFileChanged = true;
             renderBillFilePreview();
         }
 
@@ -480,6 +483,7 @@
             document.getElementById('billModalTitle').textContent = 'הוסף חשבון';
             document.getElementById('billSaveError').style.display = 'none';
             currentBillFile = null;
+            billFileChanged = false;
             renderBillFilePreview();
 
             if (id) {
@@ -520,11 +524,15 @@
                 amount: amount,
                 cardName: document.getElementById('billCardName').value.trim() || null,
                 notes: document.getElementById('billNotes').value.trim(),
-                fileData: currentBillFile ? currentBillFile.dataUrl : null,
-                fileType: currentBillFile ? currentBillFile.type : null,
-                fileName: currentBillFile ? currentBillFile.name : null,
-                fileSize: currentBillFile ? currentBillFile.size : null,
             };
+            // Only include file fields if the file was actually changed in this session
+            // (avoids re-uploading the same large base64 string on every edit)
+            if (billFileChanged || !id) {
+                data.fileData = currentBillFile ? currentBillFile.dataUrl : null;
+                data.fileType = currentBillFile ? currentBillFile.type : null;
+                data.fileName = currentBillFile ? currentBillFile.name : null;
+                data.fileSize = currentBillFile ? currentBillFile.size : null;
+            }
             const btn = document.getElementById('saveBillBtn');
             btn.disabled = true;
             btn.textContent = 'שומר...';
