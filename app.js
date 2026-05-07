@@ -199,7 +199,7 @@ function renderHeader() {
                 <div class="user-menu">
                     <span class="user-name">שלום, ${escapeHtmlSafe(displayName)}</span>
                     <a href="users.html" class="logout-btn icon-only" title="פרופיל" aria-label="פרופיל">${ICONS.users}</a>
-                    <button class="logout-btn logout-btn-danger" onclick="logout()" title="התנתקות" aria-label="התנתקות">${ICONS.logout}<span class="btn-text">התנתקות</span></button>
+                    <button class="logout-btn logout-btn-danger" onclick="logout()" title="התנתקות" aria-label="התנתקות" style="color:#dc2626;border-color:#dc2626;background:transparent" onmouseover="this.style.background='#dc2626';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='#dc2626'">${ICONS.logout}<span class="btn-text">התנתקות</span></button>
                 </div>
             </div>
         </div>
