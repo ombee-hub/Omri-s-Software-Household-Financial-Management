@@ -110,7 +110,7 @@
             <div class="toolbar">
                 <div></div>
                 <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" id="uploadBtn">העלה דף אשראי</button>
-                <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls,.csv" onchange="handleFileSelected(event)">
+                <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls,.csv,.pdf,application/pdf" onchange="handleFileSelected(event)">
             </div>
 
             <div id="statementsContainer"></div>
@@ -222,8 +222,8 @@
                 container.innerHTML = `
                     <div class="upload-zone" onclick="document.getElementById('fileInput').click()" id="uploadZone">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        <div><strong>גרור קובץ אקסל לכאן</strong> או לחץ לבחירה</div>
-                        <div style="font-size:0.85rem;margin-top:4px">פורמטים נתמכים: .xlsx, .xls, .csv</div>
+                        <div><strong>גרור קובץ אקסל או PDF לכאן</strong> או לחץ לבחירה</div>
+                        <div style="font-size:0.85rem;margin-top:4px">פורמטים נתמכים: .xlsx, .xls, .csv, .pdf</div>
                     </div>`;
                 wireDropZone();
                 return;
@@ -232,6 +232,7 @@
             const sorted = [...statementsData].sort((a, b) => (b.month || '').localeCompare(a.month || ''));
             container.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px">
                 ${sorted.map(s => {
+                    const isPdf = s.fileType === 'application/pdf';
                     const total = (s.transactions || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
                     const count = (s.transactions || []).length;
                     return `
@@ -245,12 +246,12 @@
                         </div>
                         <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center">
                             <div>
-                                <div style="font-size:1.6rem;font-weight:700;color:var(--dark)">${fmtCurrency(total)}</div>
-                                <div style="color:var(--gray-dark);font-size:0.85rem">${count} עסקאות</div>
+                                ${isPdf
+                                    ? '<div style="font-size:1.05rem;font-weight:700;color:var(--dark);display:flex;align-items:center;gap:6px"><span style="font-size:1.4rem">📄</span> PDF</div><div style="color:var(--gray-dark);font-size:0.85rem">קובץ מצורף</div>'
+                                    : `<div style="font-size:1.6rem;font-weight:700;color:var(--dark)">${fmtCurrency(total)}</div><div style="color:var(--gray-dark);font-size:0.85rem">${count} עסקאות</div>`
+                                }
                             </div>
-                            <div style="color:var(--gray)">
-                                ${ICONS.arrowLeft}
-                            </div>
+                            <div style="color:var(--gray)">${ICONS.arrowLeft}</div>
                         </div>
                     </div>`;
                 }).join('')}
@@ -289,6 +290,29 @@
             document.getElementById('detailView').style.display = 'block';
             document.getElementById('pageTitle').textContent = s.name || 'דף אשראי';
             document.getElementById('pageSubtitle').textContent = (s.month ? formatYM(s.month) : '') + (s.last4 ? ' · ••' + s.last4 : '');
+
+            const isPdf = s.fileType === 'application/pdf' && s.fileData;
+
+            if (isPdf) {
+                document.getElementById('detailTitle').textContent = 'קובץ PDF';
+                document.getElementById('detailMeta').innerHTML = `
+                    ${s.company ? `<span class="stat-pill">חברה: <strong>${escapeHtml(getCompanyName(s.company))}</strong></span>` : ''}
+                    <span class="stat-pill">קובץ: <strong>${escapeHtml(s.fileName || 'PDF')}</strong></span>
+                    <span class="stat-pill">גודל: <strong>${((s.fileSize || 0) / 1024).toFixed(0)} KB</strong></span>
+                `;
+                document.getElementById('transactionsContainer').innerHTML = `
+                    <div style="text-align:center;padding:30px 20px">
+                        <div style="font-size:4rem;margin-bottom:12px">📄</div>
+                        <button class="btn btn-primary" onclick="downloadStatementPdf('${s.id}')" style="margin-bottom:14px">
+                            ${ICONS.arrowLeft}<span style="margin-right:6px">הורד את ה-PDF</span>
+                        </button>
+                        <div style="margin-top:18px">
+                            <iframe src="${s.fileData}" style="width:100%;max-width:800px;height:600px;border:1px solid var(--border);border-radius:var(--radius-sm)"></iframe>
+                        </div>
+                    </div>`;
+                return;
+            }
+
             document.getElementById('detailTitle').textContent = 'עסקאות בדף';
 
             const txns = s.transactions || [];
@@ -383,8 +407,42 @@
             e.target.value = ''; // allow re-uploading same file
         }
 
+        let pdfFile = null; // { dataUrl, name, size }
+
         async function handleFile(file) {
             try {
+                const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+
+                // Default name from filename
+                const nameInput = document.getElementById('stmtName');
+                if (!nameInput.value) {
+                    nameInput.value = file.name.replace(/\.[^/.]+$/, '');
+                }
+                const monthInput = document.getElementById('stmtMonth');
+                if (!monthInput.value) monthInput.value = currentYM();
+
+                if (isPdf) {
+                    if (file.size > 800 * 1024) {
+                        alert('PDF גדול מדי - עד 800KB. נסה לדחוס/לפצל את הקובץ.');
+                        return;
+                    }
+                    const dataUrl = await new Promise((resolve, reject) => {
+                        const r = new FileReader();
+                        r.onload = (e) => resolve(e.target.result);
+                        r.onerror = reject;
+                        r.readAsDataURL(file);
+                    });
+                    pdfFile = { dataUrl, name: file.name, size: file.size };
+                    parsedRows = [];
+                    detectedHeaders = [];
+                    columnMapping = { date: -1, merchant: -1, amount: -1, notes: -1, installment: -1 };
+                    renderPdfPreview();
+                    openModal('uploadModal');
+                    return;
+                }
+
+                // Excel/CSV branch
+                pdfFile = null;
                 const data = await file.arrayBuffer();
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -395,27 +453,12 @@
                     return;
                 }
 
-                // Find header row - look for one with date-like or amount-like text
                 const { headerIdx, headers } = detectHeaderRow(rows);
                 detectedHeaders = headers;
                 parsedRows = rows.slice(headerIdx + 1).filter(r =>
                     r.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '')
                 );
-
-                // Auto-detect column mapping
                 columnMapping = autoDetectColumns(headers);
-
-                // Default name from filename
-                const nameInput = document.getElementById('stmtName');
-                if (!nameInput.value) {
-                    nameInput.value = file.name.replace(/\.[^/.]+$/, '');
-                }
-
-                // Default month: current month
-                const monthInput = document.getElementById('stmtMonth');
-                if (!monthInput.value) {
-                    monthInput.value = currentYM();
-                }
 
                 renderColumnMapper();
                 renderPreview();
@@ -424,6 +467,23 @@
                 console.error('Parse error:', err);
                 alert('שגיאה בקריאת הקובץ: ' + err.message);
             }
+        }
+
+        function renderPdfPreview() {
+            // Hide Excel-specific UI
+            document.getElementById('colMapper').innerHTML = `
+                <div style="background:var(--light-2);padding:12px;border-radius:var(--radius-sm);color:var(--gray-dark);font-size:0.92rem">
+                    קובץ PDF זוהה. הקובץ יישמר במלואו - לא נחלץ ממנו עסקאות אוטומטית.
+                </div>`;
+            document.getElementById('previewTable').innerHTML = '';
+            document.getElementById('parseStats').innerHTML = `
+                <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--light-2);border-radius:var(--radius-sm)">
+                    <div style="font-size:1.8rem">📄</div>
+                    <div>
+                        <div style="font-weight:600;color:var(--dark)">${escapeHtml(pdfFile.name)}</div>
+                        <div style="font-size:0.85rem">PDF · ${(pdfFile.size/1024).toFixed(0)} KB</div>
+                    </div>
+                </div>`;
         }
 
         function detectHeaderRow(rows) {
@@ -571,17 +631,38 @@
                 errEl.style.display = 'block';
                 return;
             }
-            if (columnMapping.date < 0 || columnMapping.merchant < 0 || columnMapping.amount < 0) {
-                errEl.textContent = 'חובה לבחור עמודות לתאריך, בית עסק וסכום';
-                errEl.style.display = 'block';
-                return;
-            }
 
-            const transactions = parseTransactions();
-            if (transactions.length === 0) {
-                errEl.textContent = 'לא זוהו עסקאות בקובץ';
-                errEl.style.display = 'block';
-                return;
+            const isPdf = !!pdfFile;
+            let payload = {
+                name,
+                company: document.getElementById('stmtCompany').value || '',
+                month: document.getElementById('stmtMonth').value || '',
+                last4: document.getElementById('stmtLast4').value.trim() || '',
+            };
+
+            if (isPdf) {
+                payload.transactions = [];
+                payload.transactionCount = 0;
+                payload.totalAmount = 0;
+                payload.fileData = pdfFile.dataUrl;
+                payload.fileType = 'application/pdf';
+                payload.fileName = pdfFile.name;
+                payload.fileSize = pdfFile.size;
+            } else {
+                if (columnMapping.date < 0 || columnMapping.merchant < 0 || columnMapping.amount < 0) {
+                    errEl.textContent = 'חובה לבחור עמודות לתאריך, בית עסק וסכום';
+                    errEl.style.display = 'block';
+                    return;
+                }
+                const transactions = parseTransactions();
+                if (transactions.length === 0) {
+                    errEl.textContent = 'לא זוהו עסקאות בקובץ';
+                    errEl.style.display = 'block';
+                    return;
+                }
+                payload.transactions = transactions;
+                payload.transactionCount = transactions.length;
+                payload.totalAmount = transactions.reduce((s, t) => s + (Number(t.amount) || 0), 0);
             }
 
             const btn = document.getElementById('saveStmtBtn');
@@ -589,15 +670,7 @@
             btn.textContent = 'שומר...';
 
             try {
-                await Statements.add({
-                    name,
-                    company: document.getElementById('stmtCompany').value || '',
-                    month: document.getElementById('stmtMonth').value || '',
-                    last4: document.getElementById('stmtLast4').value.trim() || '',
-                    transactions: transactions,
-                    transactionCount: transactions.length,
-                    totalAmount: transactions.reduce((s, t) => s + (Number(t.amount) || 0), 0),
-                });
+                await Statements.add(payload);
                 closeUploadModal();
             } catch (err) {
                 console.error('save error', err);
@@ -618,6 +691,16 @@
             parsedRows = [];
             detectedHeaders = [];
             columnMapping = { date: -1, merchant: -1, amount: -1, notes: -1, installment: -1 };
+            pdfFile = null;
+        }
+
+        function downloadStatementPdf(id) {
+            const s = statementsData.find(x => x.id === id);
+            if (!s || !s.fileData) return;
+            const a = document.createElement('a');
+            a.href = s.fileData;
+            a.download = s.fileName || (s.name + '.pdf');
+            a.click();
         }
 
         document.addEventListener('auth:ready', () => {
