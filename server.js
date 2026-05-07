@@ -1,45 +1,22 @@
-// מודולים נדרשים
+// התוכנה של עמרי - שרת מקומי פשוט להגשת קבצים סטטיים
 const express = require('express');
 const path = require('path');
 
-// יצירת אפליקציית Express
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// הגדרת תיקיית קבצים סטטיים
-app.use(express.static(path.join(__dirname, 'public')));
+// הגשת כל הקבצים מהתיקייה הנוכחית
+app.use(express.static(__dirname));
 
-// הגדרת Express לניתוח נתוני טופס
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-
-// דף הכניסה הראשי - יעביר לדאשבורד
+// דף ברירת מחדל - דאשבורד
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// דף ההתחברות
-app.get('/login.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-
-// טיפול בפעולת ההתחברות
-app.post('/login', (req, res) => {
-  // בפרויקט אמיתי, כאן היינו מבצעים אימות מול מסד נתונים
-  const { username, password } = req.body;
-  
-  // מתוך מטרות הדגמה, כל משתמש וסיסמה יתקבלו
-  console.log(`ניסיון התחברות: ${username}`);
-  
-  // מעביר חזרה לדף הראשי (דאשבורד)
-  res.redirect('/');
-});
-
-// מאפשר לקבצים סטטיים להיות מוגשים ישירות מהתיקייה הציבורית
-// כך שהקישורים כמו editing-status.html יעבדו ישירות
-
-// התחלת השרת
 app.listen(PORT, () => {
-  console.log(`השרת פועל בפורט ${PORT}`);
-  console.log(`פתח את הדפדפן בכתובת: http://localhost:${PORT}`);
+    console.log('=========================================');
+    console.log(`התוכנה של עמרי - שרת פועל בפורט ${PORT}`);
+    console.log(`פתח את הדפדפן בכתובת: http://localhost:${PORT}`);
+    console.log('=========================================');
+    console.log('כדי לעצור את השרת: Ctrl+C');
 });
