@@ -265,7 +265,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=22"></script>
+    <script src="app.js?v=23"></script>
     <script>
         document.getElementById('addBillBtn').innerHTML = ICONS.plus + '<span>הוסף חשבון</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
@@ -591,7 +591,7 @@
             }
             const btn = document.getElementById('saveBillBtn');
             btn.disabled = true;
-            btn.textContent = 'שומר...';
+            btn.textContent = 'שמירה...';
             try {
                 let savedId = id;
                 if (id) await Bills.update(id, data);

@@ -199,7 +199,7 @@
         <img id="lightboxImg" src="" alt="">
     </div>
 
-    <script src="app.js?v=22"></script>
+    <script src="app.js?v=23"></script>
     <script>
         document.getElementById('addDocBtn').innerHTML = ICONS.plus + '<span>הוסף מסמך</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
@@ -508,7 +508,7 @@
 
             const btn = document.getElementById('saveDocBtn');
             btn.disabled = true;
-            btn.textContent = 'שומר...';
+            btn.textContent = 'שמירה...';
 
             try {
                 if (id) await Docs.update(id, data);
