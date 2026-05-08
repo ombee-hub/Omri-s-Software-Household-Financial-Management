@@ -135,13 +135,19 @@ function confirmDelete(name) {
 }
 
 // ===== Styled confirm/alert dialogs (replace browser confirm/alert) =====
+// Helper to size SVG icons inline (in case CSS is cached old)
+function _sizedIcon(svg, size = 18) {
+    return svg.replace('<svg ', `<svg width="${size}" height="${size}" style="flex-shrink:0;display:inline-block;vertical-align:middle" `);
+}
+
 function showConfirm(message, opts = {}) {
     const { title = 'אישור', confirmText = 'אישור', cancelText = 'ביטול', danger = false, emoji = (danger ? '⚠️' : '❓') } = opts;
-    const confirmIcon = danger ? ICONS.trash : ICONS.check;
-    const cancelStyle = 'background:#dc2626 !important;color:white !important;border-color:#dc2626 !important';
-    const confirmStyle = danger
-        ? 'background:#dc2626 !important;color:white !important;border-color:#dc2626 !important;justify-content:center;min-width:130px'
-        : 'justify-content:center;min-width:130px';
+    const confirmIconSvg = _sizedIcon(danger ? ICONS.trash : ICONS.check);
+    const cancelIconSvg = _sizedIcon(ICONS.close);
+    const cancelStyle = 'background:#dc2626 !important;color:white !important;border-color:#dc2626 !important;display:inline-flex;align-items:center;gap:6px;justify-content:center;min-width:130px';
+    const confirmStyle = (danger
+        ? 'background:#dc2626 !important;color:white !important;border-color:#dc2626 !important;'
+        : '') + 'display:inline-flex;align-items:center;gap:6px;justify-content:center;min-width:130px';
     return new Promise((resolve) => {
         const modal = document.createElement('div');
         modal.className = 'modal-backdrop show';
@@ -152,8 +158,8 @@ function showConfirm(message, opts = {}) {
                 <h3 style="font-size:1.25rem;font-weight:700;color:var(--dark);margin-bottom:10px">${escapeHtmlSafe(title)}</h3>
                 <p style="color:var(--gray-dark);margin-bottom:22px;font-size:0.95rem;white-space:pre-line;line-height:1.5">${escapeHtmlSafe(message)}</p>
                 <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-                    <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-result="ok" style="${confirmStyle}">${confirmIcon}<span>${escapeHtmlSafe(confirmText)}</span></button>
-                    <button class="btn btn-danger" data-result="cancel" style="${cancelStyle};justify-content:center;min-width:130px">${ICONS.close}<span>${escapeHtmlSafe(cancelText)}</span></button>
+                    <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-result="ok" style="${confirmStyle}">${confirmIconSvg}<span>${escapeHtmlSafe(confirmText)}</span></button>
+                    <button class="btn btn-danger" data-result="cancel" style="${cancelStyle}">${cancelIconSvg}<span>${escapeHtmlSafe(cancelText)}</span></button>
                 </div>
             </div>`;
         document.body.appendChild(modal);
@@ -167,6 +173,7 @@ function showConfirm(message, opts = {}) {
 
 function showAlert(message, opts = {}) {
     const { title = '', confirmText = 'הבנתי', danger = false, emoji = (danger ? '⚠️' : 'ℹ️') } = opts;
+    const checkIconSvg = _sizedIcon(ICONS.check);
     return new Promise((resolve) => {
         const modal = document.createElement('div');
         modal.className = 'modal-backdrop show';
@@ -176,7 +183,7 @@ function showAlert(message, opts = {}) {
                 <div style="font-size:3rem;margin-bottom:10px;line-height:1">${emoji}</div>
                 ${title ? `<h3 style="font-size:1.25rem;font-weight:700;color:${danger ? 'var(--danger)' : 'var(--dark)'};margin-bottom:10px">${escapeHtmlSafe(title)}</h3>` : ''}
                 <p style="color:var(--gray-dark);margin-bottom:22px;font-size:0.95rem;white-space:pre-line;line-height:1.5">${escapeHtmlSafe(message)}</p>
-                <button class="btn btn-primary" style="min-width:130px;justify-content:center">${ICONS.check}<span>${escapeHtmlSafe(confirmText)}</span></button>
+                <button class="btn btn-primary" style="min-width:130px;display:inline-flex;align-items:center;gap:6px;justify-content:center">${checkIconSvg}<span>${escapeHtmlSafe(confirmText)}</span></button>
             </div>`;
         document.body.appendChild(modal);
         function done() { modal.remove(); resolve(); }
