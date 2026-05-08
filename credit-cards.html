@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=29">
+    <link rel="stylesheet" href="app.css?v=30">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -97,19 +97,22 @@
 
         .file-input { display: none; }
 
-        /* Remove ALL borders/lines from the spreadsheet table on this page */
-        #transactionsContainer .data-table,
-        #transactionsContainer .data-table th,
-        #transactionsContainer .data-table td,
-        #transactionsContainer .data-table tr,
-        #transactionsContainer .data-table thead,
-        #transactionsContainer .data-table tbody,
-        #transactionsContainer .data-table tfoot {
+        /* Spreadsheet table: show row separators only - NO top line under headers */
+        #transactionsContainer .data-table thead th {
             border: none !important;
-            border-top: none !important;
             border-bottom: none !important;
+        }
+        #transactionsContainer .data-table tbody td {
+            border-top: none !important;
+            border-bottom: 1px solid var(--border) !important;
             border-left: none !important;
             border-right: none !important;
+        }
+        #transactionsContainer .data-table tbody tr:last-child td {
+            border-bottom: none !important;
+        }
+        #transactionsContainer .data-table tfoot td {
+            border: none !important;
         }
         #transactionsContainer .data-table tbody tr:hover {
             background-color: transparent !important;
@@ -188,7 +191,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=55"></script>
+    <script src="app.js?v=56"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
