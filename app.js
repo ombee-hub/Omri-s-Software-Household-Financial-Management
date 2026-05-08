@@ -130,23 +130,30 @@ function confirmDelete(name) {
         confirmText: 'מחק',
         cancelText: 'ביטול',
         danger: true,
+        emoji: '🗑️',
     });
 }
 
 // ===== Styled confirm/alert dialogs (replace browser confirm/alert) =====
 function showConfirm(message, opts = {}) {
-    const { title = 'אישור', confirmText = 'אישור', cancelText = 'ביטול', danger = false } = opts;
+    const { title = 'אישור', confirmText = 'אישור', cancelText = 'ביטול', danger = false, emoji = (danger ? '⚠️' : '❓') } = opts;
+    const confirmIcon = danger ? ICONS.trash : ICONS.check;
+    const cancelStyle = 'background:#dc2626 !important;color:white !important;border-color:#dc2626 !important';
+    const confirmStyle = danger
+        ? 'background:#dc2626 !important;color:white !important;border-color:#dc2626 !important;justify-content:center;min-width:130px'
+        : 'justify-content:center;min-width:130px';
     return new Promise((resolve) => {
         const modal = document.createElement('div');
         modal.className = 'modal-backdrop show';
         modal.setAttribute('style', 'align-items: center !important; padding: 20px !important;');
         modal.innerHTML = `
-            <div class="modal" style="max-width:380px;text-align:center;border-radius:16px !important;animation:none !important;margin:auto">
-                ${title ? `<h3 style="font-size:1.15rem;font-weight:700;color:var(--dark);margin-bottom:10px">${escapeHtmlSafe(title)}</h3>` : ''}
-                <p style="color:var(--gray-dark);margin-bottom:18px;font-size:0.95rem;white-space:pre-line">${escapeHtmlSafe(message)}</p>
-                <div style="display:flex;gap:10px;justify-content:center">
-                    <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-result="ok" style="min-width:110px;justify-content:center${danger ? ';background:#dc2626;color:white;border-color:#dc2626' : ''}">${escapeHtmlSafe(confirmText)}</button>
-                    <button class="btn btn-danger" data-result="cancel" style="min-width:110px;justify-content:center;background:#dc2626;color:white;border-color:#dc2626">${escapeHtmlSafe(cancelText)}</button>
+            <div class="modal" style="max-width:400px;text-align:center;border-radius:16px !important;animation:none !important;margin:auto;padding:28px 24px">
+                <div style="font-size:3rem;margin-bottom:10px;line-height:1">${emoji}</div>
+                <h3 style="font-size:1.25rem;font-weight:700;color:var(--dark);margin-bottom:10px">${escapeHtmlSafe(title)}</h3>
+                <p style="color:var(--gray-dark);margin-bottom:22px;font-size:0.95rem;white-space:pre-line;line-height:1.5">${escapeHtmlSafe(message)}</p>
+                <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+                    <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-result="ok" style="${confirmStyle}">${confirmIcon}<span>${escapeHtmlSafe(confirmText)}</span></button>
+                    <button class="btn btn-danger" data-result="cancel" style="${cancelStyle};justify-content:center;min-width:130px">${ICONS.close}<span>${escapeHtmlSafe(cancelText)}</span></button>
                 </div>
             </div>`;
         document.body.appendChild(modal);
@@ -159,16 +166,17 @@ function showConfirm(message, opts = {}) {
 }
 
 function showAlert(message, opts = {}) {
-    const { title = '', confirmText = 'הבנתי', danger = false } = opts;
+    const { title = '', confirmText = 'הבנתי', danger = false, emoji = (danger ? '⚠️' : 'ℹ️') } = opts;
     return new Promise((resolve) => {
         const modal = document.createElement('div');
         modal.className = 'modal-backdrop show';
         modal.setAttribute('style', 'align-items: center !important; padding: 20px !important;');
         modal.innerHTML = `
-            <div class="modal" style="max-width:380px;text-align:center;border-radius:16px !important;animation:none !important;margin:auto">
-                ${title ? `<h3 style="font-size:1.15rem;font-weight:700;color:${danger ? 'var(--danger)' : 'var(--dark)'};margin-bottom:10px">${escapeHtmlSafe(title)}</h3>` : ''}
-                <p style="color:var(--gray-dark);margin-bottom:18px;font-size:0.95rem;white-space:pre-line">${escapeHtmlSafe(message)}</p>
-                <button class="btn btn-primary" style="min-width:120px;justify-content:center">${escapeHtmlSafe(confirmText)}</button>
+            <div class="modal" style="max-width:400px;text-align:center;border-radius:16px !important;animation:none !important;margin:auto;padding:28px 24px">
+                <div style="font-size:3rem;margin-bottom:10px;line-height:1">${emoji}</div>
+                ${title ? `<h3 style="font-size:1.25rem;font-weight:700;color:${danger ? 'var(--danger)' : 'var(--dark)'};margin-bottom:10px">${escapeHtmlSafe(title)}</h3>` : ''}
+                <p style="color:var(--gray-dark);margin-bottom:22px;font-size:0.95rem;white-space:pre-line;line-height:1.5">${escapeHtmlSafe(message)}</p>
+                <button class="btn btn-primary" style="min-width:130px;justify-content:center">${ICONS.check}<span>${escapeHtmlSafe(confirmText)}</span></button>
             </div>`;
         document.body.appendChild(modal);
         function done() { modal.remove(); resolve(); }
