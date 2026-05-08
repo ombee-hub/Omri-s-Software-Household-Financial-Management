@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - חשבונות</title>
-    <link rel="stylesheet" href="app.css?v=4">
+    <link rel="stylesheet" href="app.css?v=5">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -227,10 +227,25 @@
         </div>
     </div>
 
-    <!-- Lightbox -->
+    <!-- Lightbox (images) -->
     <div class="lightbox" id="lightbox" onclick="closeLightbox()">
         <button class="lightbox-close" onclick="closeLightbox()" id="lightboxCloseBtn"></button>
         <img id="lightboxImg" src="" alt="">
+    </div>
+
+    <!-- PDF viewer modal -->
+    <div class="modal-backdrop" id="pdfViewerModal">
+        <div class="modal" style="max-width:900px;width:95%">
+            <div class="modal-header">
+                <div class="modal-title" id="pdfViewerTitle">צפייה ב-PDF</div>
+                <button class="modal-close" onclick="closeModal('pdfViewerModal')" id="pdfViewerCloseBtn"></button>
+            </div>
+            <iframe id="pdfViewerFrame" src="" style="width:100%;height:70vh;min-height:480px;border:1px solid var(--border);border-radius:var(--radius-sm);background:white"></iframe>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="pdfViewerDownloadBtn"><span>הורד קובץ</span></button>
+                <button type="button" class="btn btn-danger" style="background:#dc2626;color:white;border-color:#dc2626" onclick="closeModal('pdfViewerModal')">סגירה</button>
+            </div>
+        </div>
     </div>
 
     <!-- Mark as paid modal -->
@@ -265,12 +280,13 @@
         </div>
     </div>
 
-    <script src="app.js?v=30"></script>
+    <script src="app.js?v=31"></script>
     <script>
         document.getElementById('addBillBtn').innerHTML = ICONS.plus + '<span>הוסף חשבון</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
         document.getElementById('lightboxCloseBtn').innerHTML = ICONS.close;
         document.getElementById('payCloseBtn').innerHTML = ICONS.close;
+        document.getElementById('pdfViewerCloseBtn').innerHTML = ICONS.close;
 
         const catSelect = document.getElementById('billCategory');
         const filterSelect = document.getElementById('filterCategory');
@@ -355,7 +371,7 @@
                             const paidAmountText = paid && entry.amount ? `<br><small style="color:var(--gray-dark)">שולם ${fmtCurrency(entry.amount)}${entry.paidAt ? ' ב-' + fmtDate(entry.paidAt) : ''}</small>` : '';
                             const fileBtn = b.fileData ? (
                                 b.fileType === 'application/pdf'
-                                    ? `<button class="file-pill" onclick="downloadBillFile('${b.id}')" title="הורד PDF">📄 PDF</button>`
+                                    ? `<button class="file-pill" onclick="viewBillPdf('${b.id}')" title="הצג PDF">📄 PDF</button>`
                                     : `<button class="file-pill" onclick="openLightbox('${b.id}')" title="הצג תמונה">🖼️ תמונה</button>`
                             ) : '—';
                             return `<tr>
@@ -530,6 +546,23 @@
             a.download = b.fileName || (b.name + '.pdf');
             a.click();
         }
+
+        function viewBillPdf(id) {
+            const b = billsData.find(x => x.id === id);
+            if (!b || !b.fileData) return;
+            document.getElementById('pdfViewerTitle').textContent = b.fileName || b.name || 'PDF';
+            document.getElementById('pdfViewerFrame').src = b.fileData;
+            document.getElementById('pdfViewerDownloadBtn').onclick = () => downloadBillFile(id);
+            openModal('pdfViewerModal');
+        }
+
+        // Clear iframe src on close to free memory
+        document.getElementById('pdfViewerModal').addEventListener('transitionend', () => {
+            const m = document.getElementById('pdfViewerModal');
+            if (!m.classList.contains('show')) {
+                document.getElementById('pdfViewerFrame').src = '';
+            }
+        });
 
         // ===== Modal CRUD =====
 

@@ -13,8 +13,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
-    <title>התוכנה של עמרי - דפי אשראי</title>
-    <link rel="stylesheet" href="app.css?v=4">
+    <title>התוכנה של עמרי - כלל דפים</title>
+    <link rel="stylesheet" href="app.css?v=5">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -103,7 +103,7 @@
 
     <div class="page-title-bar">
         <div class="container">
-            <h2 id="pageTitle">דפי אשראי</h2>
+            <h2 id="pageTitle">כלל דפים</h2>
             <div class="subtitle" id="pageSubtitle">העלה קובץ אקסל מחברת האשראי - המערכת תחלץ את העסקאות אוטומטית</div>
         </div>
     </div>
@@ -129,9 +129,7 @@
                         <h3 class="card-title" id="detailTitle"></h3>
                         <div id="detailMeta" style="margin-top:8px"></div>
                     </div>
-                    <div>
-                        <button class="btn btn-outline btn-sm" onclick="deleteCurrentStatement()" id="detailDeleteBtn">מחק דף</button>
-                    </div>
+                    <div id="detailActions" style="display:flex;gap:6px;flex-wrap:wrap"></div>
                 </div>
                 <div id="transactionsContainer"></div>
             </div>
@@ -195,14 +193,14 @@
                 <div id="uploadError" style="color:var(--danger);font-size:0.9rem;margin:10px 0;display:none"></div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" onclick="saveStatement()" id="saveStmtBtn">שמירת דף אשראי</button>
+                    <button type="button" class="btn btn-primary" onclick="saveStatement()" id="saveStmtBtn">שמירת דף</button>
                     <button type="button" class="btn btn-danger" style="background:#dc2626;color:white;border-color:#dc2626" onclick="closeUploadModal()">ביטול</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="app.js?v=30"></script>
+    <script src="app.js?v=31"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -217,6 +215,8 @@
         let parsedRows = []; // raw rows from Excel
         let detectedHeaders = []; // column headers detected
         let columnMapping = { date: -1, merchant: -1, amount: -1, notes: -1, installment: -1 };
+        let editMode = false;
+        let editedTxns = []; // working copy when in edit mode
 
         // ===== List view =====
 
@@ -292,10 +292,11 @@
             currentStatement = s;
             document.getElementById('listView').style.display = 'none';
             document.getElementById('detailView').style.display = 'block';
-            document.getElementById('pageTitle').textContent = s.name || 'דף אשראי';
+            document.getElementById('pageTitle').textContent = s.name || 'דף';
             document.getElementById('pageSubtitle').textContent = (s.month ? formatYM(s.month) : '') + (s.last4 ? ' · ••' + s.last4 : '');
 
             const isPdf = s.fileType === 'application/pdf' && s.fileData;
+            const actionsEl = document.getElementById('detailActions');
 
             if (isPdf) {
                 document.getElementById('detailTitle').textContent = 'קובץ PDF';
@@ -304,21 +305,30 @@
                     <span class="stat-pill">קובץ: <strong>${escapeHtml(s.fileName || 'PDF')}</strong></span>
                     <span class="stat-pill">גודל: <strong>${((s.fileSize || 0) / 1024).toFixed(0)} KB</strong></span>
                 `;
+                actionsEl.innerHTML = `
+                    <button class="btn btn-outline btn-sm" onclick="downloadStatementPdf('${s.id}')">${ICONS.arrowLeft}<span>הורד PDF</span></button>
+                    <button class="btn btn-outline btn-sm" onclick="deleteCurrentStatement()">${ICONS.trash}<span>מחק דף</span></button>
+                `;
                 document.getElementById('transactionsContainer').innerHTML = `
-                    <div style="text-align:center;padding:30px 20px">
-                        <div style="font-size:4rem;margin-bottom:12px">📄</div>
-                        <button class="btn btn-primary" onclick="downloadStatementPdf('${s.id}')" style="margin-bottom:14px">
-                            ${ICONS.arrowLeft}<span style="margin-right:6px">הורד את ה-PDF</span>
-                        </button>
-                        <div style="margin-top:18px">
-                            <iframe src="${s.fileData}" style="width:100%;max-width:800px;height:600px;border:1px solid var(--border);border-radius:var(--radius-sm)"></iframe>
-                        </div>
+                    <div style="margin-top:8px">
+                        <iframe src="${s.fileData}" style="width:100%;height:75vh;min-height:500px;border:1px solid var(--border);border-radius:var(--radius-sm)"></iframe>
                     </div>`;
                 return;
             }
 
-            document.getElementById('detailTitle').textContent = 'עסקאות בדף';
+            document.getElementById('detailTitle').textContent = editMode ? 'עריכת עסקאות' : 'עסקאות בדף';
 
+            // ===== EDIT MODE =====
+            if (editMode) {
+                actionsEl.innerHTML = `
+                    <button class="btn btn-success btn-sm" onclick="saveEditedTransactions()" id="saveEditBtn">${ICONS.check}<span>שמירה</span></button>
+                    <button class="btn btn-danger btn-sm" onclick="cancelEdit()">${ICONS.close}<span>ביטול</span></button>
+                `;
+                renderEditableTransactions();
+                return;
+            }
+
+            // ===== READ-ONLY MODE =====
             const txns = s.transactions || [];
             const total = txns.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
             document.getElementById('detailMeta').innerHTML = `
@@ -327,9 +337,14 @@
                 ${s.company ? `<span class="stat-pill">חברה: <strong>${escapeHtml(getCompanyName(s.company))}</strong></span>` : ''}
             `;
 
+            actionsEl.innerHTML = `
+                <button class="btn btn-primary btn-sm" onclick="enterEditMode()">${ICONS.edit}<span>ערוך עסקאות</span></button>
+                <button class="btn btn-outline btn-sm" onclick="deleteCurrentStatement()">${ICONS.trash}<span>מחק דף</span></button>
+            `;
+
             const container = document.getElementById('transactionsContainer');
             if (txns.length === 0) {
-                container.innerHTML = `<div class="empty-state"><h3>אין עסקאות בדף הזה</h3></div>`;
+                container.innerHTML = `<div class="empty-state"><h3>אין עסקאות בדף הזה</h3><p>לחץ על "ערוך עסקאות" כדי להוסיף ידנית</p></div>`;
                 return;
             }
 
@@ -354,11 +369,108 @@
                 </div>`;
         }
 
+        // ===== Edit-mode helpers =====
+
+        function enterEditMode() {
+            if (!currentStatement) return;
+            editMode = true;
+            editedTxns = JSON.parse(JSON.stringify(currentStatement.transactions || []));
+            showDetail(currentStatement.id);
+        }
+
+        function cancelEdit() {
+            editMode = false;
+            editedTxns = [];
+            if (currentStatement) showDetail(currentStatement.id);
+        }
+
+        function renderEditableTransactions() {
+            const total = editedTxns.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+            document.getElementById('detailMeta').innerHTML = `
+                <span class="stat-pill">סך: <strong id="editTotal">${fmtCurrency(total)}</strong></span>
+                <span class="stat-pill">עסקאות: <strong id="editCount">${editedTxns.length}</strong></span>
+                <span class="stat-pill" style="background:#fef3c7;color:#92400e">מצב עריכה</span>
+            `;
+
+            const container = document.getElementById('transactionsContainer');
+            const rowsHtml = editedTxns.map((t, idx) => `
+                <tr>
+                    <td><input type="date" class="form-input" value="${escapeHtml(t.date || '')}" onchange="updateTxnField(${idx}, 'date', this.value)" style="min-width:140px;padding:6px 10px;font-size:0.88rem"></td>
+                    <td><input type="text" class="form-input" value="${escapeHtml(t.merchant || '')}" oninput="updateTxnField(${idx}, 'merchant', this.value)" style="padding:6px 10px;font-size:0.88rem;min-width:160px" placeholder="בית עסק"></td>
+                    <td><input type="number" step="0.01" class="form-input" value="${escapeHtml(t.amount || '')}" oninput="updateTxnField(${idx}, 'amount', this.value)" style="padding:6px 10px;font-size:0.88rem;width:110px" placeholder="0"></td>
+                    <td><input type="text" class="form-input" value="${escapeHtml(t.installment || '')}" oninput="updateTxnField(${idx}, 'installment', this.value)" style="padding:6px 10px;font-size:0.88rem;width:100px" placeholder="—"></td>
+                    <td><input type="text" class="form-input" value="${escapeHtml(t.notes || '')}" oninput="updateTxnField(${idx}, 'notes', this.value)" style="padding:6px 10px;font-size:0.88rem;min-width:140px" placeholder="—"></td>
+                    <td><button type="button" class="btn-icon danger" onclick="deleteTxnRow(${idx})" title="מחק שורה">${ICONS.trash}</button></td>
+                </tr>`).join('');
+
+            container.innerHTML = `
+                <div style="overflow-x:auto">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>תאריך</th><th>בית עסק</th><th>סכום</th><th>תשלומים</th><th>הערות</th><th></th></tr>
+                    </thead>
+                    <tbody id="editTbody">${rowsHtml || '<tr><td colspan="6" style="text-align:center;color:var(--gray-dark);padding:24px">אין עסקאות. לחץ על "הוסף שורה" להוסיף ידנית.</td></tr>'}</tbody>
+                </table>
+                </div>
+                <div style="margin-top:14px;display:flex;justify-content:flex-start">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="addTxnRow()">${ICONS.plus}<span>הוסף שורה</span></button>
+                </div>`;
+        }
+
+        function updateTxnField(idx, field, value) {
+            if (idx < 0 || idx >= editedTxns.length) return;
+            editedTxns[idx][field] = field === 'amount' ? (value === '' ? '' : Number(value)) : value;
+            if (field === 'amount') {
+                const total = editedTxns.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+                const totalEl = document.getElementById('editTotal');
+                if (totalEl) totalEl.textContent = fmtCurrency(total);
+            }
+        }
+
+        function addTxnRow() {
+            editedTxns.push({ date: todayISO(), merchant: '', amount: '', installment: '', notes: '' });
+            renderEditableTransactions();
+        }
+
+        function deleteTxnRow(idx) {
+            editedTxns.splice(idx, 1);
+            renderEditableTransactions();
+        }
+
+        async function saveEditedTransactions() {
+            if (!currentStatement) return;
+            const btn = document.getElementById('saveEditBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = ICONS.check + '<span>שמירה...</span>'; }
+            try {
+                const cleaned = editedTxns.map(t => ({
+                    date: t.date || '',
+                    merchant: t.merchant || '',
+                    amount: Number(t.amount) || 0,
+                    installment: t.installment || '',
+                    notes: t.notes || '',
+                })).filter(t => t.date || t.merchant || t.amount);
+                const totalAmount = cleaned.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+                await Statements.update(currentStatement.id, {
+                    transactions: cleaned,
+                    transactionCount: cleaned.length,
+                    totalAmount: totalAmount,
+                });
+                editMode = false;
+                editedTxns = [];
+                if (currentStatement) showDetail(currentStatement.id);
+            } catch (err) {
+                showAlert('שגיאה בשמירה: ' + err.message);
+                if (btn) { btn.disabled = false; btn.innerHTML = ICONS.check + '<span>שמירה</span>'; }
+            }
+        }
+
         function showList() {
             currentStatement = null;
+            editMode = false;
+            editedTxns = [];
             document.getElementById('detailView').style.display = 'none';
             document.getElementById('listView').style.display = 'block';
-            document.getElementById('pageTitle').textContent = 'דפי אשראי';
+            document.getElementById('pageTitle').textContent = 'כלל דפים';
             document.getElementById('pageSubtitle').textContent = 'העלה קובץ אקסל מחברת האשראי - המערכת תחלץ את העסקאות אוטומטית';
         }
 
@@ -682,7 +794,7 @@
                 errEl.style.display = 'block';
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'שמירת דף אשראי';
+                btn.textContent = 'שמירת דף';
             }
         }
 

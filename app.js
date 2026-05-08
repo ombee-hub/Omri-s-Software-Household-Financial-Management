@@ -235,7 +235,7 @@ function renderHeader() {
     const activePage = window.location.pathname.split('/').pop() || 'index.html';
     const links = [
         { href: 'index.html', label: 'דאשבורד', shortLabel: 'בית', icon: ICONS.dashboard },
-        { href: 'credit-cards.html', label: 'דפי אשראי', shortLabel: 'אשראי', icon: ICONS.card },
+        { href: 'credit-cards.html', label: 'כלל דפים', shortLabel: 'דפים', icon: ICONS.card },
         { href: 'bills.html', label: 'חשבונות', shortLabel: 'חשבונות', icon: ICONS.bill },
         { href: 'tasks.html', label: 'משימות', shortLabel: 'משימות', icon: ICONS.task },
         { href: 'documents.html', label: 'מסמכים', shortLabel: 'מסמכים', icon: ICONS.folder },
