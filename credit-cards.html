@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=18">
+    <link rel="stylesheet" href="app.css?v=19">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -170,7 +170,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=44"></script>
+    <script src="app.js?v=45"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -452,9 +452,7 @@
 
             // Legacy transactions view (only if no sheet data)
             const txns = s.transactions || [];
-            const total = txns.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
             document.getElementById('detailMeta').innerHTML = `
-                <span class="stat-pill">סך: <strong>${fmtCurrency(total)}</strong></span>
                 <span class="stat-pill">עסקאות: <strong>${txns.length}</strong></span>
             `;
 
@@ -630,9 +628,7 @@
         }
 
         function renderEditableTransactions() {
-            const total = editedTxns.reduce((s, t) => s + (Number(t.amount) || 0), 0);
             document.getElementById('detailMeta').innerHTML = `
-                <span class="stat-pill">סך: <strong id="editTotal">${fmtCurrency(total)}</strong></span>
                 <span class="stat-pill">עסקאות: <strong id="editCount">${editedTxns.length}</strong></span>
                 <span class="stat-pill" style="background:#fef3c7;color:#92400e">מצב עריכה</span>
             `;
@@ -665,11 +661,6 @@
         function updateTxnField(idx, field, value) {
             if (idx < 0 || idx >= editedTxns.length) return;
             editedTxns[idx][field] = field === 'amount' ? (value === '' ? '' : Number(value)) : value;
-            if (field === 'amount') {
-                const total = editedTxns.reduce((s, t) => s + (Number(t.amount) || 0), 0);
-                const totalEl = document.getElementById('editTotal');
-                if (totalEl) totalEl.textContent = fmtCurrency(total);
-            }
         }
 
         function addTxnRow() {
