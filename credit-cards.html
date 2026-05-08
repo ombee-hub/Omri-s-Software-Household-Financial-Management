@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=6">
+    <link rel="stylesheet" href="app.css?v=7">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -145,70 +145,31 @@
             </div>
 
             <div id="uploadFormContent">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">שם הדף <span style="color:var(--danger)">*</span></label>
-                        <input type="text" id="stmtName" class="form-input" placeholder="ויזה כאל - נובמבר 2026" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">סוג הקובץ</label>
-                        <select id="stmtCompany" class="form-select">
-                            <option value="">בחר...</option>
-                            <option value="credit">אשראי</option>
-                            <option value="electricity">חשמל</option>
-                            <option value="water">מים</option>
-                            <option value="gas">גז</option>
-                            <option value="arnona">ארנונה</option>
-                            <option value="vaad">ועד בית</option>
-                            <option value="internet">אינטרנט</option>
-                            <option value="phone">סלולר</option>
-                            <option value="tv">טלוויזיה</option>
-                            <option value="insurance">ביטוח</option>
-                            <option value="mortgage">משכנתא</option>
-                            <option value="rent">שכר דירה</option>
-                            <option value="bank">בנק</option>
-                            <option value="subscription">מנויים</option>
-                            <option value="other">אחר</option>
-                        </select>
-                    </div>
+                <div class="form-group">
+                    <label class="form-label">שם הדף <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="stmtName" class="form-input" placeholder="לדוגמה: חשבון חשמל - מאי 2026" required>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">חודש החיוב</label>
-                        <input type="month" id="stmtMonth" class="form-input">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">4 ספרות אחרונות (אופציונלי)</label>
-                        <input type="text" id="stmtLast4" class="form-input" maxlength="4" pattern="[0-9]{4}" inputmode="numeric" placeholder="1234">
-                    </div>
-                </div>
+                <div id="parseStats" style="margin:10px 0"></div>
 
-                <div style="border-top:1px solid var(--border);margin:14px 0;padding-top:14px">
-                    <strong>זיהוי עמודות מהקובץ</strong>
-                    <p style="color:var(--gray-dark);font-size:0.88rem;margin-top:4px">המערכת ניסתה לזהות עמודות אוטומטית. תוכל לשנות אם משהו לא נכון.</p>
-                    <div id="colMapper"></div>
-                </div>
-
-                <div style="border-top:1px solid var(--border);margin:14px 0;padding-top:14px">
-                    <strong>תצוגה מקדימה (10 שורות ראשונות):</strong>
-                    <div style="overflow-x:auto;margin-top:8px">
-                        <table class="data-table preview-table" id="previewTable"></table>
-                    </div>
-                    <p id="parseStats" style="color:var(--gray-dark);font-size:0.88rem;margin-top:8px"></p>
-                </div>
+                <!-- Hidden inputs kept for backward compatibility -->
+                <input type="hidden" id="stmtCompany" value="">
+                <input type="hidden" id="stmtMonth" value="">
+                <input type="hidden" id="stmtLast4" value="">
+                <div id="colMapper" style="display:none"></div>
+                <table id="previewTable" style="display:none"></table>
 
                 <div id="uploadError" style="color:var(--danger);font-size:0.9rem;margin:10px 0;display:none"></div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" onclick="saveStatement()" id="saveStmtBtn">שמירת דף</button>
+                    <button type="button" class="btn btn-primary" onclick="saveStatement()" id="saveStmtBtn">שמירה</button>
                     <button type="button" class="btn btn-danger" style="background:#dc2626;color:white;border-color:#dc2626" onclick="closeUploadModal()">ביטול</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="app.js?v=32"></script>
+    <script src="app.js?v=33"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -698,26 +659,27 @@
 
         function renderPreview() {
             const transactions = parseTransactions();
-            const previewRows = transactions.slice(0, 10);
-            const tbl = document.getElementById('previewTable');
-            tbl.innerHTML = `
-                <thead>
-                    <tr><th>תאריך</th><th>בית עסק</th><th>סכום</th><th>תשלומים</th><th>הערות</th></tr>
-                </thead>
-                <tbody>
-                    ${previewRows.map(t => `
-                        <tr>
-                            <td>${escapeHtml(formatDate(t.date))}</td>
-                            <td class="merchant-cell" title="${escapeHtml(t.merchant)}">${escapeHtml(t.merchant)}</td>
-                            <td>${fmtCurrency(t.amount)}</td>
-                            <td>${escapeHtml(t.installment)}</td>
-                            <td>${escapeHtml(t.notes)}</td>
-                        </tr>`).join('')}
-                </tbody>`;
-
             const total = transactions.reduce((s, t) => s + (Number(t.amount) || 0), 0);
-            document.getElementById('parseStats').textContent =
-                `זוהו ${transactions.length} עסקאות, סך ${fmtCurrency(total)}`;
+            const stats = document.getElementById('parseStats');
+            if (transactions.length > 0) {
+                stats.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(67,160,71,0.1);border-radius:var(--radius-sm);color:var(--dark)">
+                        <div style="font-size:1.6rem">📊</div>
+                        <div>
+                            <div style="font-weight:600">${transactions.length} עסקאות זוהו</div>
+                            <div style="font-size:0.85rem;color:var(--gray-dark)">סך הכל: ${fmtCurrency(total)}</div>
+                        </div>
+                    </div>`;
+            } else {
+                stats.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--light-2);border-radius:var(--radius-sm);color:var(--gray-dark)">
+                        <div style="font-size:1.6rem">📄</div>
+                        <div>
+                            <div style="font-weight:600;color:var(--dark)">קובץ זוהה</div>
+                            <div style="font-size:0.85rem">הקובץ יישמר. תוכל לערוך עסקאות ידנית בדף.</div>
+                        </div>
+                    </div>`;
+            }
         }
 
         function parseTransactions() {
@@ -796,16 +758,10 @@
                 payload.fileName = pdfFile.name;
                 payload.fileSize = pdfFile.size;
             } else {
-                if (columnMapping.date < 0 || columnMapping.merchant < 0 || columnMapping.amount < 0) {
-                    errEl.textContent = 'חובה לבחור עמודות לתאריך, בית עסק וסכום';
-                    errEl.style.display = 'block';
-                    return;
-                }
-                const transactions = parseTransactions();
-                if (transactions.length === 0) {
-                    errEl.textContent = 'לא זוהו עסקאות בקובץ';
-                    errEl.style.display = 'block';
-                    return;
+                // Auto-parse if columns were detected; otherwise save with empty transactions
+                let transactions = [];
+                if (columnMapping.date >= 0 || columnMapping.merchant >= 0 || columnMapping.amount >= 0) {
+                    transactions = parseTransactions();
                 }
                 payload.transactions = transactions;
                 payload.transactionCount = transactions.length;
