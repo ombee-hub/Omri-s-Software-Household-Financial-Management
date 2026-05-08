@@ -265,7 +265,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=23"></script>
+    <script src="app.js?v=24"></script>
     <script>
         document.getElementById('addBillBtn').innerHTML = ICONS.plus + '<span>הוסף חשבון</span>';
         document.getElementById('closeBtn').innerHTML = ICONS.close;
@@ -624,10 +624,10 @@
 
             if (entry) {
                 // Already paid - confirm before unmarking
-                if (confirm(`לבטל את סימון התשלום של "${bill.name}" לחודש זה?`)) {
+                if (await showConfirm(`לבטל את סימון התשלום של "${bill.name}" לחודש זה?`, { title: "ביטול תשלום", confirmText: "כן, בטל", danger: true })) {
                     try {
                         await billSetUnpaid(id, ym);
-                    } catch (err) { alert('שגיאה: ' + err.message); }
+                    } catch (err) { showAlert('שגיאה: ' + err.message); }
                 }
                 return;
             }
@@ -653,16 +653,16 @@
                 await billSetPaid(id, currentYM(), amount, date);
                 closeModal('payModal');
             } catch (err) {
-                alert('שגיאה: ' + err.message);
+                showAlert('שגיאה: ' + err.message);
             }
         }
 
         async function deleteBill(id, name) {
-            if (!confirmDelete(name)) return;
+            if (!await confirmDelete(name)) return;
             try {
                 await Bills.remove(id);
             } catch (err) {
-                alert('שגיאה במחיקה: ' + err.message);
+                showAlert('שגיאה במחיקה: ' + err.message);
             }
         }
 

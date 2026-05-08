@@ -202,7 +202,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=23"></script>
+    <script src="app.js?v=24"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -376,12 +376,12 @@
 
         async function deleteCurrentStatement() {
             if (!currentStatement) return;
-            if (!confirmDelete(currentStatement.name)) return;
+            if (!await confirmDelete(currentStatement.name)) return;
             try {
                 await Statements.remove(currentStatement.id);
                 showList();
             } catch (err) {
-                alert('שגיאה במחיקה: ' + err.message);
+                showAlert('שגיאה במחיקה: ' + err.message);
             }
         }
 
@@ -427,7 +427,7 @@
 
                 if (isPdf) {
                     if (file.size > 800 * 1024) {
-                        alert('PDF גדול מדי - עד 800KB. נסה לדחוס/לפצל את הקובץ.');
+                        showAlert('PDF גדול מדי - עד 800KB. נסה לדחוס/לפצל את הקובץ.');
                         return;
                     }
                     const dataUrl = await new Promise((resolve, reject) => {
@@ -453,7 +453,7 @@
                 const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
 
                 if (rows.length < 2) {
-                    alert('הקובץ ריק או לא תקין');
+                    showAlert('הקובץ ריק או לא תקין');
                     return;
                 }
 
@@ -469,7 +469,7 @@
                 openModal('uploadModal');
             } catch (err) {
                 console.error('Parse error:', err);
-                alert('שגיאה בקריאת הקובץ: ' + err.message);
+                showAlert('שגיאה בקריאת הקובץ: ' + err.message);
             }
         }
 
