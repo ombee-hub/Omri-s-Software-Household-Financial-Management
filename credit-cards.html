@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=8">
+    <link rel="stylesheet" href="app.css?v=9">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -169,7 +169,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=34"></script>
+    <script src="app.js?v=35"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -193,9 +193,10 @@
 
         function renderList() {
             const container = document.getElementById('statementsContainer');
-            if (statementsData.length === 0) {
+            try {
+            if (!statementsData || statementsData.length === 0) {
                 container.innerHTML = `
-                    <div class="upload-zone" onclick="document.getElementById('fileInput').click()" id="uploadZone">
+                    <div class="upload-zone" onclick="document.getElementById('fileInput').click()" id="uploadZone" style="margin-top:14px">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         <div><strong>גרור קובץ אקסל או PDF לכאן</strong> או לחץ לבחירה</div>
                         <div style="font-size:0.85rem;margin-top:4px">פורמטים נתמכים: .xlsx, .xls, .csv, .pdf</div>
@@ -227,7 +228,7 @@
                     <div class="card stmt-card" onclick="showDetail('${s.id}')" style="margin-bottom:0">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start">
                             <div style="flex:1;min-width:0">
-                                <h3 style="font-size:1.05rem;color:var(--dark);font-weight:700;margin-bottom:4px;word-break:break-word">${escapeHtml(s.name)}</h3>
+                                <h3 style="font-size:1.05rem;color:var(--dark);font-weight:700;margin-bottom:4px;word-break:break-word">${escapeHtml(s.name || 'ללא שם')}</h3>
                             </div>
                         </div>
                         <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center">
@@ -237,6 +238,10 @@
                     </div>`;
                 }).join('')}
             </div>`;
+            } catch (err) {
+                console.error('renderList error:', err);
+                container.innerHTML = `<div class="empty-state" style="color:var(--danger)"><h3>שגיאה בהצגת הרשימה</h3><p>${escapeHtml(err.message || String(err))}</p></div>`;
+            }
         }
 
         function getCompanyBadge(company) {
@@ -929,6 +934,16 @@
                 payload.totalAmount = transactions.reduce((s, t) => s + (Number(t.amount) || 0), 0);
             }
 
+            // Estimate Firestore document size (limit is 1MB)
+            try {
+                const sizeBytes = new Blob([JSON.stringify(payload)]).size;
+                if (sizeBytes > 950 * 1024) {
+                    errEl.innerHTML = `הקובץ גדול מדי לשמירה (${(sizeBytes/1024).toFixed(0)}KB > 950KB).<br>נסה להפחית מספר שורות/עמודות באקסל לפני העלאה.`;
+                    errEl.style.display = 'block';
+                    return;
+                }
+            } catch (_) { /* ignore size check failure */ }
+
             const btn = document.getElementById('saveStmtBtn');
             btn.disabled = true;
             btn.textContent = 'שמירה...';
@@ -938,11 +953,11 @@
                 closeUploadModal();
             } catch (err) {
                 console.error('save error', err);
-                errEl.textContent = 'שגיאה בשמירה: ' + err.message;
+                errEl.textContent = 'שגיאה בשמירה: ' + (err.message || err);
                 errEl.style.display = 'block';
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'שמירת דף';
+                btn.textContent = 'שמירה';
             }
         }
 
@@ -967,9 +982,13 @@
             a.click();
         }
 
+        // Initial loading placeholder so the page doesn't appear blank before data arrives
+        document.getElementById('statementsContainer').innerHTML =
+            '<div class="empty-state" style="padding:40px"><h3>טוען...</h3></div>';
+
         document.addEventListener('auth:ready', () => {
             Statements.subscribe(items => {
-                statementsData = items;
+                statementsData = items || [];
                 if (currentStatement) {
                     const updated = statementsData.find(s => s.id === currentStatement.id);
                     if (updated) {
