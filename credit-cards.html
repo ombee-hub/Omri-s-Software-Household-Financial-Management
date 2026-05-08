@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=5">
+    <link rel="stylesheet" href="app.css?v=6">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -151,15 +151,23 @@
                         <input type="text" id="stmtName" class="form-input" placeholder="ויזה כאל - נובמבר 2026" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">חברת אשראי</label>
+                        <label class="form-label">סוג הקובץ</label>
                         <select id="stmtCompany" class="form-select">
                             <option value="">בחר...</option>
-                            <option value="visa">Visa</option>
-                            <option value="mastercard">Mastercard</option>
-                            <option value="amex">American Express</option>
-                            <option value="isracard">ישראכרט</option>
-                            <option value="cal">כאל</option>
-                            <option value="max">Max</option>
+                            <option value="credit">אשראי</option>
+                            <option value="electricity">חשמל</option>
+                            <option value="water">מים</option>
+                            <option value="gas">גז</option>
+                            <option value="arnona">ארנונה</option>
+                            <option value="vaad">ועד בית</option>
+                            <option value="internet">אינטרנט</option>
+                            <option value="phone">סלולר</option>
+                            <option value="tv">טלוויזיה</option>
+                            <option value="insurance">ביטוח</option>
+                            <option value="mortgage">משכנתא</option>
+                            <option value="rent">שכר דירה</option>
+                            <option value="bank">בנק</option>
+                            <option value="subscription">מנויים</option>
                             <option value="other">אחר</option>
                         </select>
                     </div>
@@ -200,7 +208,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=31"></script>
+    <script src="app.js?v=32"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -263,7 +271,23 @@
         }
 
         function getCompanyBadge(company) {
-            const companies = {
+            const types = {
+                // New file-type categories
+                credit: { label: 'אשראי', color: '#1a1f71' },
+                electricity: { label: 'חשמל', color: '#f59e0b' },
+                water: { label: 'מים', color: '#0284c7' },
+                gas: { label: 'גז', color: '#dc2626' },
+                arnona: { label: 'ארנונה', color: '#7c3aed' },
+                vaad: { label: 'ועד בית', color: '#0d9488' },
+                internet: { label: 'אינטרנט', color: '#2563eb' },
+                phone: { label: 'סלולר', color: '#059669' },
+                tv: { label: 'טלוויזיה', color: '#9333ea' },
+                insurance: { label: 'ביטוח', color: '#475569' },
+                mortgage: { label: 'משכנתא', color: '#92400e' },
+                rent: { label: 'שכר דירה', color: '#b45309' },
+                bank: { label: 'בנק', color: '#166534' },
+                subscription: { label: 'מנויים', color: '#be185d' },
+                // Legacy credit card brand values (kept for backward compatibility)
                 visa: { label: 'Visa', color: '#1a1f71' },
                 mastercard: { label: 'Mastercard', color: '#eb001b' },
                 amex: { label: 'AmEx', color: '#006fcf' },
@@ -272,7 +296,7 @@
                 max: { label: 'Max', color: '#5a189a' },
                 other: { label: 'אחר', color: 'var(--gray)' },
             };
-            const c = companies[company] || { label: '', color: 'var(--gray)' };
+            const c = types[company] || { label: '', color: 'var(--gray)' };
             if (!c.label) return '';
             return `<span style="background:${c.color};color:white;padding:3px 10px;border-radius:6px;font-size:0.72rem;font-weight:600">${c.label}</span>`;
         }
@@ -301,7 +325,7 @@
             if (isPdf) {
                 document.getElementById('detailTitle').textContent = 'קובץ PDF';
                 document.getElementById('detailMeta').innerHTML = `
-                    ${s.company ? `<span class="stat-pill">חברה: <strong>${escapeHtml(getCompanyName(s.company))}</strong></span>` : ''}
+                    ${s.company ? `<span class="stat-pill">סוג: <strong>${escapeHtml(getCompanyName(s.company))}</strong></span>` : ''}
                     <span class="stat-pill">קובץ: <strong>${escapeHtml(s.fileName || 'PDF')}</strong></span>
                     <span class="stat-pill">גודל: <strong>${((s.fileSize || 0) / 1024).toFixed(0)} KB</strong></span>
                 `;
@@ -334,7 +358,7 @@
             document.getElementById('detailMeta').innerHTML = `
                 <span class="stat-pill">סך: <strong>${fmtCurrency(total)}</strong></span>
                 <span class="stat-pill">עסקאות: <strong>${txns.length}</strong></span>
-                ${s.company ? `<span class="stat-pill">חברה: <strong>${escapeHtml(getCompanyName(s.company))}</strong></span>` : ''}
+                ${s.company ? `<span class="stat-pill">סוג: <strong>${escapeHtml(getCompanyName(s.company))}</strong></span>` : ''}
             `;
 
             actionsEl.innerHTML = `
@@ -475,7 +499,14 @@
         }
 
         function getCompanyName(c) {
-            const map = { visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express', isracard: 'ישראכרט', cal: 'כאל', max: 'Max', other: 'אחר' };
+            const map = {
+                credit: 'אשראי', electricity: 'חשמל', water: 'מים', gas: 'גז',
+                arnona: 'ארנונה', vaad: 'ועד בית', internet: 'אינטרנט', phone: 'סלולר',
+                tv: 'טלוויזיה', insurance: 'ביטוח', mortgage: 'משכנתא', rent: 'שכר דירה',
+                bank: 'בנק', subscription: 'מנויים',
+                visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express',
+                isracard: 'ישראכרט', cal: 'כאל', max: 'Max', other: 'אחר',
+            };
             return map[c] || c || '';
         }
 
