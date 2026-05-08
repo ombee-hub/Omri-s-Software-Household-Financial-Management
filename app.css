@@ -112,7 +112,7 @@ header.app-header {
     background-color: transparent;
     color: var(--primary);
     padding: 8px 14px;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     font-weight: 600;
     font-size: 0.88rem;
     border: 1.5px solid var(--border);
@@ -172,7 +172,7 @@ nav.app-nav {
     gap: 8px;
     padding: 8px 16px;
     color: var(--gray-dark);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     transition: all 0.25s ease;
     font-size: 0.92rem;
     font-weight: 500;
