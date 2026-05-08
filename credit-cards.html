@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=10">
+    <link rel="stylesheet" href="app.css?v=11">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -169,7 +169,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=36"></script>
+    <script src="app.js?v=37"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -359,8 +359,10 @@
                             <tr>${headers.map(h => `<th>${escapeHtml(h || '—')}</th>`).join('')}</tr>
                         </thead>
                         <tbody>
-                            ${rows.map(r => `
-                                <tr>${headers.map((_, idx) => `<td>${escapeHtml(r[idx] ?? '')}</td>`).join('')}</tr>`).join('')}
+                            ${rows.map(r => {
+                                const vals = (r && r.values) || [];
+                                return `<tr>${headers.map((_, idx) => `<td>${escapeHtml(vals[idx] ?? '')}</td>`).join('')}</tr>`;
+                            }).join('')}
                         </tbody>
                     </table>
                     </div>`;
@@ -415,7 +417,11 @@
             const hasSheet = Array.isArray(currentStatement.sheetHeaders) && Array.isArray(currentStatement.sheetRows);
             if (hasSheet) {
                 editedSheetHeaders = [...currentStatement.sheetHeaders];
-                editedSheetRows = currentStatement.sheetRows.map(r => [...r]);
+                // Each row is { values: [...] } in storage; we work with plain arrays in memory
+                editedSheetRows = currentStatement.sheetRows.map(r => {
+                    if (Array.isArray(r)) return [...r]; // legacy plain-array shape
+                    return [...((r && r.values) || [])];
+                });
                 editedTxns = [];
             } else {
                 editedTxns = JSON.parse(JSON.stringify(currentStatement.transactions || []));
@@ -567,9 +573,10 @@
 
                 if (editingSheet) {
                     const headers = editedSheetHeaders.map(h => String(h ?? ''));
+                    // Wrap each row in { values: [...] } object — Firestore disallows nested arrays
                     const rows = editedSheetRows
-                        .map(r => headers.map((_, ci) => String(r[ci] ?? '')))
-                        .filter(r => r.some(v => String(v).trim() !== ''));
+                        .map(r => ({ values: headers.map((_, ci) => String(r[ci] ?? '')) }))
+                        .filter(r => r.values.some(v => String(v).trim() !== ''));
                     await Statements.update(currentStatement.id, {
                         sheetHeaders: headers,
                         sheetRows: rows,
@@ -911,16 +918,17 @@
                 payload.fileName = pdfFile.name;
                 payload.fileSize = pdfFile.size;
             } else {
-                // Save the RAW spreadsheet data (headers + all rows) so it can be edited later
+                // Save the RAW spreadsheet data (headers + all rows) so it can be edited later.
+                // Firestore does NOT allow nested arrays, so each row is wrapped in an object: { values: [...] }
                 const cleanHeaders = (detectedHeaders || []).map(h => String(h ?? '').trim());
-                const cleanRows = (parsedRows || []).map(r =>
-                    cleanHeaders.map((_, idx) => {
+                const cleanRows = (parsedRows || []).map(r => ({
+                    values: cleanHeaders.map((_, idx) => {
                         const v = r[idx];
                         if (v === null || v === undefined) return '';
                         if (v instanceof Date) return v.toISOString().slice(0,10);
                         return String(v);
                     })
-                );
+                }));
                 payload.sheetHeaders = cleanHeaders;
                 payload.sheetRows = cleanRows;
 
