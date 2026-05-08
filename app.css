@@ -492,7 +492,7 @@ main { padding-bottom: 60px; }
 .badge {
     display: inline-block;
     padding: 4px 12px;
-    border-radius: 999px;
+    border-radius: 6px;
     font-size: 0.78rem;
     font-weight: 600;
     color: white;

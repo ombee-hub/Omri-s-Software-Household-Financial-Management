@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - דפי אשראי</title>
-    <link rel="stylesheet" href="app.css?v=2">
+    <link rel="stylesheet" href="app.css?v=3">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -87,7 +87,7 @@
             gap: 6px;
             background: var(--light);
             padding: 6px 12px;
-            border-radius: 999px;
+            border-radius: 6px;
             font-size: 0.85rem;
             color: var(--gray-dark);
             margin-left: 6px;
@@ -274,7 +274,7 @@
             };
             const c = companies[company] || { label: '', color: 'var(--gray)' };
             if (!c.label) return '';
-            return `<span style="background:${c.color};color:white;padding:3px 10px;border-radius:999px;font-size:0.72rem;font-weight:600">${c.label}</span>`;
+            return `<span style="background:${c.color};color:white;padding:3px 10px;border-radius:6px;font-size:0.72rem;font-weight:600">${c.label}</span>`;
         }
 
         function formatYM(ym) {
