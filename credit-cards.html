@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=17">
+    <link rel="stylesheet" href="app.css?v=18">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -170,7 +170,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=43"></script>
+    <script src="app.js?v=44"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -341,23 +341,11 @@
         }
 
         function renderSheetTotalsBar(totals, sheetRowsLength, sheetColsLength) {
-            const parts = [
-                `<span class="stat-pill">שורות: <strong>${sheetRowsLength}</strong></span>`,
-                `<span class="stat-pill">עמודות: <strong>${sheetColsLength}</strong></span>`,
-            ];
-            if (totals.hasIncome) parts.push(`<span class="stat-pill" style="background:rgba(67,160,71,0.15);color:#1f6b25">סך הכנסות: <strong>${fmtCurrency(totals.income)}</strong></span>`);
-            if (totals.hasExpense) parts.push(`<span class="stat-pill" style="background:rgba(220,38,38,0.10);color:#b91c1c">סך הוצאות: <strong>${fmtCurrency(totals.expense)}</strong></span>`);
-            if (totals.hasIncome && totals.hasExpense) {
-                const balanceColor = totals.balance >= 0 ? '#1f6b25' : '#b91c1c';
-                const balanceBg = totals.balance >= 0 ? 'rgba(67,160,71,0.15)' : 'rgba(220,38,38,0.10)';
-                parts.push(`<span class="stat-pill" style="background:${balanceBg};color:${balanceColor}">יתרה: <strong>${fmtCurrency(totals.balance)}</strong></span>`);
-            }
-            // If no income/expense classification was found, show the grand total of ALL numeric values
-            if (!totals.hasIncome && !totals.hasExpense && totals.hasNumeric) {
-                const grand = totals.columnTotals.reduce((s, c) => s + c.sum, 0);
-                parts.push(`<span class="stat-pill" style="background:rgba(30,58,95,0.10);color:var(--primary)">סך הכל: <strong>${fmtCurrency(grand)}</strong></span>`);
-            }
-            return parts.join('');
+            // Top bar shows ONLY row/column counts. Sums appear in the totals row at the bottom of the table.
+            return `
+                <span class="stat-pill">שורות: <strong>${sheetRowsLength}</strong></span>
+                <span class="stat-pill">עמודות: <strong>${sheetColsLength}</strong></span>
+            `;
         }
 
         function renderTotalsRow(headers, totals) {
