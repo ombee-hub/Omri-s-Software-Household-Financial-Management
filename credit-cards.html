@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=13">
+    <link rel="stylesheet" href="app.css?v=14">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -170,7 +170,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=39"></script>
+    <script src="app.js?v=40"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -344,6 +344,11 @@
                 const balanceColor = totals.balance >= 0 ? '#1f6b25' : '#b91c1c';
                 const balanceBg = totals.balance >= 0 ? 'rgba(67,160,71,0.15)' : 'rgba(220,38,38,0.10)';
                 parts.push(`<span class="stat-pill" style="background:${balanceBg};color:${balanceColor}">יתרה: <strong>${fmtCurrency(totals.balance)}</strong></span>`);
+            }
+            // If no income/expense classification was found, show the grand total of ALL numeric values
+            if (!totals.hasIncome && !totals.hasExpense && totals.hasNumeric) {
+                const grand = totals.columnTotals.reduce((s, c) => s + c.sum, 0);
+                parts.push(`<span class="stat-pill" style="background:rgba(30,58,95,0.10);color:var(--primary)">סך הכל: <strong>${fmtCurrency(grand)}</strong></span>`);
             }
             return parts.join('');
         }
@@ -523,11 +528,7 @@
 
         function renderEditableSheet() {
             // Compute totals from in-memory edited rows (which are plain arrays, not {values:[...]})
-            const fakeRows = editedSheetRows.map(r => ({ values: r }));
-            const totals = computeSheetTotals(editedSheetHeaders, fakeRows);
-            document.getElementById('detailMeta').innerHTML =
-                renderSheetTotalsBar(totals, editedSheetRows.length, editedSheetHeaders.length) +
-                '<span class="stat-pill" style="background:#fef3c7;color:#92400e">מצב עריכה</span>';
+            refreshSheetTotalsBar();
 
             const container = document.getElementById('transactionsContainer');
             const headersHtml = editedSheetHeaders.map((h, ci) => `
@@ -550,6 +551,7 @@
                         <tr>${headersHtml}<th style="width:40px"></th></tr>
                     </thead>
                     <tbody id="editSheetTbody">${rowsHtml || '<tr><td colspan="' + (editedSheetHeaders.length + 1) + '" style="text-align:center;color:var(--gray-dark);padding:24px">אין שורות. לחץ על "הוסף שורה" כדי להוסיף.</td></tr>'}</tbody>
+                    <tfoot id="editTotalsFoot"></tfoot>
                 </table>
                 </div>
                 <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
@@ -557,28 +559,55 @@
                     <button type="button" class="btn btn-outline btn-sm" onclick="addSheetColumn()">${ICONS.plus}<span>הוסף עמודה</span></button>
                     ${editedSheetHeaders.length > 0 ? `<button type="button" class="btn btn-outline btn-sm" onclick="removeLastSheetColumn()">${ICONS.trash}<span>הסר עמודה אחרונה</span></button>` : ''}
                 </div>`;
+            // Populate totals foot now that DOM exists
+            refreshEditTotalsFoot();
         }
 
         function updateSheetCell(ri, ci, value) {
             if (!editedSheetRows[ri]) return;
             editedSheetRows[ri][ci] = value;
             refreshSheetTotalsBar();
+            refreshEditTotalsFoot();
         }
 
         function updateSheetHeader(ci, value) {
             editedSheetHeaders[ci] = value;
             refreshSheetTotalsBar();
+            refreshEditTotalsFoot();
+        }
+
+        function getEditTotals() {
+            const fakeRows = editedSheetRows.map(r => ({ values: r }));
+            return computeSheetTotals(editedSheetHeaders, fakeRows);
         }
 
         function refreshSheetTotalsBar() {
-            const fakeRows = editedSheetRows.map(r => ({ values: r }));
-            const totals = computeSheetTotals(editedSheetHeaders, fakeRows);
+            const totals = getEditTotals();
             const meta = document.getElementById('detailMeta');
             if (meta) {
                 meta.innerHTML =
                     renderSheetTotalsBar(totals, editedSheetRows.length, editedSheetHeaders.length) +
                     '<span class="stat-pill" style="background:#fef3c7;color:#92400e">מצב עריכה</span>';
             }
+        }
+
+        function refreshEditTotalsFoot() {
+            const foot = document.getElementById('editTotalsFoot');
+            if (!foot) return;
+            const totals = getEditTotals();
+            if (!totals.hasNumeric) { foot.innerHTML = ''; return; }
+            // Build a totals <tr> with sums under each numeric column + extra cell for the action column
+            const colMap = new Map(totals.columnTotals.map(c => [c.header, c]));
+            foot.innerHTML = `<tr style="background:var(--light-2);font-weight:600">
+                ${editedSheetHeaders.map((h, idx) => {
+                    const col = colMap.get(h);
+                    if (!col) return idx === 0 ? '<td><strong>סה"כ</strong></td>' : '<td>—</td>';
+                    const color = col.kind === 'income' ? '#1f6b25' : col.kind === 'expense' ? '#b91c1c' : 'var(--dark)';
+                    const label = idx === 0 ? '<strong>סה"כ:</strong> ' : '';
+                    return `<td style="color:${color};white-space:nowrap;padding:8px">${label}${fmtCurrency(col.sum)}</td>`;
+                }).join('')}
+                <td></td>
+            </tr>`;
         }
 
         function addSheetRow() {
