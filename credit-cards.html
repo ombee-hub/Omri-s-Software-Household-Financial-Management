@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=25">
+    <link rel="stylesheet" href="app.css?v=26">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -170,7 +170,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=51"></script>
+    <script src="app.js?v=52"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -325,7 +325,9 @@
                     }
                 }
                 const headerLow = String(h || '').toLowerCase();
-                const headerLooksLikeAmount = /סכום|תשלום|חיוב|רווח|הכנסה|הוצאה|amount|money|total|payment|sum|cost|price|כסף|salary|שכר|fee|מחיר|חשבון/.test(headerLow);
+                // Use Hebrew word stems so plurals/with-ה-prefix variants match too
+                // (e.g., "הוצא" matches הוצאה, הוצאות, ההוצאות)
+                const headerLooksLikeAmount = /סכומ?|תשלומ?|חיובים?|רווח|הכנס|הוצא|amount|money|total|payment|sum|cost|price|כסף|salary|שכר|fee|מחיר|חשבונ|קבוע|expense|income|budget|תקציב|מאזן|בנק/.test(headerLow);
                 const isNumeric = numericCount >= 1 && numericCount >= textCount;
                 // "amounts column" = numeric AND (header looks like money OR cells contain currency symbol)
                 const isAmount = isNumeric && (headerLooksLikeAmount || hasCurrencySymbol);
