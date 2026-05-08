@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=12">
+    <link rel="stylesheet" href="app.css?v=13">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -170,7 +170,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=38"></script>
+    <script src="app.js?v=39"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -283,6 +283,85 @@
             return months[parseInt(m,10)-1] + ' ' + y;
         }
 
+        // ===== Sheet totals (auto-calculate sums per column + income/expense detection) =====
+
+        function classifyColumn(header) {
+            const h = String(header || '').toLowerCase();
+            if (/הכנס|הכנסה|הכנסות|רווח|משכורת|שכר[^\s]*דירה|ind|income|revenue|profit|salary/.test(h) && !/הוצא|expense|cost/.test(h)) {
+                // Note: 'שכר דירה' (rent) is an expense, not income — exclude it
+                if (/שכר דירה|שכר־דירה|שכ"ד|שכ״ד/.test(h)) return 'expense';
+                return 'income';
+            }
+            if (/הוצא|הוצאה|הוצאות|תשלום|תשלומים|חשבון|expense|expenses|cost|costs|payment|bill/.test(h)) return 'expense';
+            return 'other';
+        }
+
+        function parseNumericValue(raw) {
+            if (raw === null || raw === undefined || raw === '') return NaN;
+            const cleaned = String(raw).replace(/[₪$,\s]/g, '').replace(/[()]/g, '');
+            const n = parseFloat(cleaned);
+            return isNaN(n) ? NaN : n;
+        }
+
+        function computeSheetTotals(headers, rows) {
+            // Returns: { columnTotals: [{header, sum, count, kind}], income, expense, balance, hasNumeric }
+            const columnTotals = headers.map((h, ci) => {
+                let sum = 0;
+                let count = 0;
+                for (const r of rows) {
+                    const vals = (r && r.values) || (Array.isArray(r) ? r : []);
+                    const n = parseNumericValue(vals[ci]);
+                    if (!isNaN(n)) {
+                        sum += n;
+                        count++;
+                    }
+                }
+                return { header: h, sum, count, kind: classifyColumn(h) };
+            });
+
+            const numericCols = columnTotals.filter(c => c.count > 0);
+            const income = numericCols.filter(c => c.kind === 'income').reduce((s, c) => s + c.sum, 0);
+            const expense = numericCols.filter(c => c.kind === 'expense').reduce((s, c) => s + c.sum, 0);
+            return {
+                columnTotals: numericCols,
+                income,
+                expense,
+                balance: income - expense,
+                hasIncome: numericCols.some(c => c.kind === 'income'),
+                hasExpense: numericCols.some(c => c.kind === 'expense'),
+                hasNumeric: numericCols.length > 0,
+            };
+        }
+
+        function renderSheetTotalsBar(totals, sheetRowsLength, sheetColsLength) {
+            const parts = [
+                `<span class="stat-pill">שורות: <strong>${sheetRowsLength}</strong></span>`,
+                `<span class="stat-pill">עמודות: <strong>${sheetColsLength}</strong></span>`,
+            ];
+            if (totals.hasIncome) parts.push(`<span class="stat-pill" style="background:rgba(67,160,71,0.15);color:#1f6b25">סך הכנסות: <strong>${fmtCurrency(totals.income)}</strong></span>`);
+            if (totals.hasExpense) parts.push(`<span class="stat-pill" style="background:rgba(220,38,38,0.10);color:#b91c1c">סך הוצאות: <strong>${fmtCurrency(totals.expense)}</strong></span>`);
+            if (totals.hasIncome && totals.hasExpense) {
+                const balanceColor = totals.balance >= 0 ? '#1f6b25' : '#b91c1c';
+                const balanceBg = totals.balance >= 0 ? 'rgba(67,160,71,0.15)' : 'rgba(220,38,38,0.10)';
+                parts.push(`<span class="stat-pill" style="background:${balanceBg};color:${balanceColor}">יתרה: <strong>${fmtCurrency(totals.balance)}</strong></span>`);
+            }
+            return parts.join('');
+        }
+
+        function renderTotalsRow(headers, totals) {
+            // Returns an HTML <tr> showing sums under each numeric column
+            const colMap = new Map(totals.columnTotals.map(c => [c.header, c]));
+            return `<tr style="background:var(--light-2);font-weight:600">
+                ${headers.map((h, idx) => {
+                    const col = colMap.get(h);
+                    if (!col) return '<td>—</td>';
+                    const color = col.kind === 'income' ? '#1f6b25' : col.kind === 'expense' ? '#b91c1c' : 'var(--dark)';
+                    const label = idx === 0 ? 'סה"כ' : '';
+                    return `<td style="color:${color};white-space:nowrap">${label ? '<strong>' + label + ':</strong> ' : ''}${fmtCurrency(col.sum)}</td>`;
+                }).join('')}
+            </tr>`;
+        }
+
         // ===== Detail view =====
 
         function showDetail(id) {
@@ -340,10 +419,8 @@
             if (hasSheet) {
                 const headers = s.sheetHeaders;
                 const rows = s.sheetRows;
-                document.getElementById('detailMeta').innerHTML = `
-                    <span class="stat-pill">שורות: <strong>${rows.length}</strong></span>
-                    <span class="stat-pill">עמודות: <strong>${headers.length}</strong></span>
-                `;
+                const totals = computeSheetTotals(headers, rows);
+                document.getElementById('detailMeta').innerHTML = renderSheetTotalsBar(totals, rows.length, headers.length);
                 actionsEl.innerHTML = `
                     <button class="btn btn-primary btn-sm" onclick="enterEditMode()">${ICONS.edit}<span>ערוך קובץ</span></button>
                     <button class="btn btn-outline btn-sm" onclick="deleteCurrentStatement()">${ICONS.trash}<span>מחק דף</span></button>
@@ -353,6 +430,7 @@
                     container.innerHTML = `<div class="empty-state"><h3>הקובץ ריק</h3><p>לחץ על "ערוך קובץ" כדי להוסיף שורות</p></div>`;
                     return;
                 }
+                const totalsRowHtml = totals.hasNumeric ? renderTotalsRow(headers, totals) : '';
                 container.innerHTML = `
                     <div style="overflow-x:auto">
                     <table class="data-table">
@@ -364,6 +442,7 @@
                                 const vals = (r && r.values) || [];
                                 return `<tr>${headers.map((_, idx) => `<td>${escapeHtml(vals[idx] ?? '')}</td>`).join('')}</tr>`;
                             }).join('')}
+                            ${totalsRowHtml}
                         </tbody>
                     </table>
                     </div>`;
@@ -443,11 +522,12 @@
         // ===== Generic sheet editor =====
 
         function renderEditableSheet() {
-            document.getElementById('detailMeta').innerHTML = `
-                <span class="stat-pill">שורות: <strong id="editRowCount">${editedSheetRows.length}</strong></span>
-                <span class="stat-pill">עמודות: <strong id="editColCount">${editedSheetHeaders.length}</strong></span>
-                <span class="stat-pill" style="background:#fef3c7;color:#92400e">מצב עריכה</span>
-            `;
+            // Compute totals from in-memory edited rows (which are plain arrays, not {values:[...]})
+            const fakeRows = editedSheetRows.map(r => ({ values: r }));
+            const totals = computeSheetTotals(editedSheetHeaders, fakeRows);
+            document.getElementById('detailMeta').innerHTML =
+                renderSheetTotalsBar(totals, editedSheetRows.length, editedSheetHeaders.length) +
+                '<span class="stat-pill" style="background:#fef3c7;color:#92400e">מצב עריכה</span>';
 
             const container = document.getElementById('transactionsContainer');
             const headersHtml = editedSheetHeaders.map((h, ci) => `
@@ -482,10 +562,23 @@
         function updateSheetCell(ri, ci, value) {
             if (!editedSheetRows[ri]) return;
             editedSheetRows[ri][ci] = value;
+            refreshSheetTotalsBar();
         }
 
         function updateSheetHeader(ci, value) {
             editedSheetHeaders[ci] = value;
+            refreshSheetTotalsBar();
+        }
+
+        function refreshSheetTotalsBar() {
+            const fakeRows = editedSheetRows.map(r => ({ values: r }));
+            const totals = computeSheetTotals(editedSheetHeaders, fakeRows);
+            const meta = document.getElementById('detailMeta');
+            if (meta) {
+                meta.innerHTML =
+                    renderSheetTotalsBar(totals, editedSheetRows.length, editedSheetHeaders.length) +
+                    '<span class="stat-pill" style="background:#fef3c7;color:#92400e">מצב עריכה</span>';
+            }
         }
 
         function addSheetRow() {
