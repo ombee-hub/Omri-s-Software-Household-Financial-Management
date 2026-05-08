@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=24">
+    <link rel="stylesheet" href="app.css?v=25">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -170,7 +170,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=50"></script>
+    <script src="app.js?v=51"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -304,15 +304,18 @@
         }
 
         function computeSheetTotals(headers, rows) {
-            // Returns: { columnTotals: [{header, sum, count, kind}], income, expense, balance, hasNumeric }
+            // Detect each column: is it numeric? Is it specifically an "amounts" (money) column?
             const columnTotals = headers.map((h, ci) => {
                 let sum = 0;
                 let numericCount = 0;
                 let textCount = 0;
+                let hasCurrencySymbol = false; // ₪/$ in any cell value
                 for (const r of rows) {
                     const vals = (r && r.values) || (Array.isArray(r) ? r : []);
                     const raw = vals[ci];
                     if (raw === '' || raw === null || raw === undefined) continue;
+                    const rawStr = String(raw);
+                    if (/[₪$]/.test(rawStr)) hasCurrencySymbol = true;
                     const n = parseNumericValue(raw);
                     if (!isNaN(n)) {
                         sum += n;
@@ -321,22 +324,25 @@
                         textCount++;
                     }
                 }
-                return { header: h, sum, count: numericCount, textCount, kind: classifyColumn(h) };
+                const headerLow = String(h || '').toLowerCase();
+                const headerLooksLikeAmount = /סכום|תשלום|חיוב|רווח|הכנסה|הוצאה|amount|money|total|payment|sum|cost|price|כסף|salary|שכר|fee|מחיר|חשבון/.test(headerLow);
+                const isNumeric = numericCount >= 1 && numericCount >= textCount;
+                // "amounts column" = numeric AND (header looks like money OR cells contain currency symbol)
+                const isAmount = isNumeric && (headerLooksLikeAmount || hasCurrencySymbol);
+                return { header: h, sum, count: numericCount, textCount, isNumeric, isAmount, kind: classifyColumn(h) };
             });
 
-            // A column is "numeric" if at least half its non-empty values are numbers.
-            // This is permissive enough to handle stray text rows but still excludes label columns.
-            const numericCols = columnTotals.filter(c => c.count >= 1 && c.count >= c.textCount);
-            const income = numericCols.filter(c => c.kind === 'income').reduce((s, c) => s + c.sum, 0);
-            const expense = numericCols.filter(c => c.kind === 'expense').reduce((s, c) => s + c.sum, 0);
+            const amountsCols = columnTotals.filter(c => c.isAmount);
+            const income = amountsCols.filter(c => c.kind === 'income').reduce((s, c) => s + c.sum, 0);
+            const expense = amountsCols.filter(c => c.kind === 'expense').reduce((s, c) => s + c.sum, 0);
             return {
-                columnTotals: numericCols,
+                columnTotals: amountsCols, // only show sums for actual amounts columns
                 income,
                 expense,
                 balance: income - expense,
-                hasIncome: numericCols.some(c => c.kind === 'income'),
-                hasExpense: numericCols.some(c => c.kind === 'expense'),
-                hasNumeric: numericCols.length > 0,
+                hasIncome: amountsCols.some(c => c.kind === 'income'),
+                hasExpense: amountsCols.some(c => c.kind === 'expense'),
+                hasNumeric: amountsCols.length > 0,
             };
         }
 
@@ -349,17 +355,15 @@
         }
 
         function renderTotalsRow(headers, totals) {
-            // Per-column sums: each numeric column shows its own sum below it.
-            // "סה"כ" label appears in column 0 (if column 0 itself is not numeric).
+            // Column 0: "סה"כ" label ALONE (no sum even if col 0 is numeric).
+            // Other columns: show sum ONLY if that column is an actual amounts/money column.
             const colMap = new Map(totals.columnTotals.map(c => [c.header, c]));
-            const col0IsNumeric = !!colMap.get(headers[0]);
             return `<tr style="background:#fff3cd;font-weight:700;border-top:2px solid var(--primary);font-size:1.05rem">
                 ${headers.map((h, idx) => {
+                    if (idx === 0) return '<td style="padding:12px"><strong>סה"כ</strong></td>';
                     const col = colMap.get(h);
-                    if (idx === 0 && !col0IsNumeric) return '<td style="padding:12px"><strong>סה"כ</strong></td>';
                     if (col) {
-                        const prefix = (idx === 0 && col0IsNumeric) ? '<strong>סה"כ:</strong> ' : '';
-                        return `<td style="white-space:nowrap;color:var(--primary);padding:12px">${prefix}${fmtCurrency(col.sum)}</td>`;
+                        return `<td style="white-space:nowrap;color:var(--primary);padding:12px">${fmtCurrency(col.sum)}</td>`;
                     }
                     return '<td style="padding:12px"></td>';
                 }).join('')}
@@ -593,16 +597,13 @@
             if (!foot) return;
             const totals = getEditTotals();
             if (!totals.hasNumeric) { foot.innerHTML = ''; return; }
-            // Per-column sums: each numeric column shows its own sum below it
             const colMap = new Map(totals.columnTotals.map(c => [c.header, c]));
-            const col0IsNumeric = !!colMap.get(editedSheetHeaders[0]);
             foot.innerHTML = `<tr style="background:#fff3cd;font-weight:700;border-top:2px solid var(--primary);font-size:1.05rem">
                 ${editedSheetHeaders.map((h, idx) => {
+                    if (idx === 0) return '<td style="padding:12px"><strong>סה"כ</strong></td>';
                     const col = colMap.get(h);
-                    if (idx === 0 && !col0IsNumeric) return '<td style="padding:12px"><strong>סה"כ</strong></td>';
                     if (col) {
-                        const prefix = (idx === 0 && col0IsNumeric) ? '<strong>סה"כ:</strong> ' : '';
-                        return `<td style="white-space:nowrap;padding:12px;color:var(--primary)">${prefix}${fmtCurrency(col.sum)}</td>`;
+                        return `<td style="white-space:nowrap;padding:12px;color:var(--primary)">${fmtCurrency(col.sum)}</td>`;
                     }
                     return '<td style="padding:12px"></td>';
                 }).join('')}
