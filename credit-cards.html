@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=16">
+    <link rel="stylesheet" href="app.css?v=17">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -170,7 +170,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=42"></script>
+    <script src="app.js?v=43"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -361,22 +361,16 @@
         }
 
         function renderTotalsRow(headers, totals) {
-            // Sums appear only under numeric columns. The first non-numeric column gets a "סה"כ" label.
+            // First column ALWAYS gets the "סה"כ" label (no sum).
+            // Other columns show their sum if numeric, otherwise empty.
             const colMap = new Map(totals.columnTotals.map(c => [c.header, c]));
-            let labelPlaced = false;
             return `<tr style="background:var(--light-2);font-weight:600">
-                ${headers.map(h => {
+                ${headers.map((h, idx) => {
+                    if (idx === 0) return '<td><strong>סה"כ</strong></td>';
                     const col = colMap.get(h);
-                    if (col) {
-                        const color = col.kind === 'income' ? '#1f6b25' : col.kind === 'expense' ? '#b91c1c' : 'var(--dark)';
-                        return `<td style="color:${color};white-space:nowrap">${fmtCurrency(col.sum)}</td>`;
-                    }
-                    // Non-numeric column: place the label in the FIRST text column only
-                    if (!labelPlaced) {
-                        labelPlaced = true;
-                        return '<td><strong>סה"כ</strong></td>';
-                    }
-                    return '<td></td>';
+                    if (!col) return '<td></td>';
+                    const color = col.kind === 'income' ? '#1f6b25' : col.kind === 'expense' ? '#b91c1c' : 'var(--dark)';
+                    return `<td style="color:${color};white-space:nowrap">${fmtCurrency(col.sum)}</td>`;
                 }).join('')}
             </tr>`;
         }
@@ -611,19 +605,14 @@
             const totals = getEditTotals();
             if (!totals.hasNumeric) { foot.innerHTML = ''; return; }
             const colMap = new Map(totals.columnTotals.map(c => [c.header, c]));
-            let labelPlaced = false;
+            // First column ALWAYS gets the "סה"כ" label (no sum). Other numeric columns show their sum.
             foot.innerHTML = `<tr style="background:var(--light-2);font-weight:600">
-                ${editedSheetHeaders.map(h => {
+                ${editedSheetHeaders.map((h, idx) => {
+                    if (idx === 0) return '<td style="padding:8px"><strong>סה"כ</strong></td>';
                     const col = colMap.get(h);
-                    if (col) {
-                        const color = col.kind === 'income' ? '#1f6b25' : col.kind === 'expense' ? '#b91c1c' : 'var(--dark)';
-                        return `<td style="color:${color};white-space:nowrap;padding:8px">${fmtCurrency(col.sum)}</td>`;
-                    }
-                    if (!labelPlaced) {
-                        labelPlaced = true;
-                        return '<td style="padding:8px"><strong>סה"כ</strong></td>';
-                    }
-                    return '<td style="padding:8px"></td>';
+                    if (!col) return '<td style="padding:8px"></td>';
+                    const color = col.kind === 'income' ? '#1f6b25' : col.kind === 'expense' ? '#b91c1c' : 'var(--dark)';
+                    return `<td style="color:${color};white-space:nowrap;padding:8px">${fmtCurrency(col.sum)}</td>`;
                 }).join('')}
                 <td></td>
             </tr>`;
