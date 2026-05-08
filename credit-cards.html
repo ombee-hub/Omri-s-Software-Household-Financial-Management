@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=7">
+    <link rel="stylesheet" href="app.css?v=8">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -169,7 +169,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=33"></script>
+    <script src="app.js?v=34"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -185,7 +185,9 @@
         let detectedHeaders = []; // column headers detected
         let columnMapping = { date: -1, merchant: -1, amount: -1, notes: -1, installment: -1 };
         let editMode = false;
-        let editedTxns = []; // working copy when in edit mode
+        let editedTxns = []; // working copy when in edit mode (legacy transactions)
+        let editedSheetHeaders = []; // working copy of headers when editing generic sheet
+        let editedSheetRows = []; // working copy of rows when editing generic sheet
 
         // ===== List view =====
 
@@ -202,28 +204,34 @@
                 return;
             }
 
-            const sorted = [...statementsData].sort((a, b) => (b.month || '').localeCompare(a.month || ''));
+            const sorted = [...statementsData].sort((a, b) => {
+                const ta = a.createdAt ? (a.createdAt.toMillis ? a.createdAt.toMillis() : 0) : 0;
+                const tb = b.createdAt ? (b.createdAt.toMillis ? b.createdAt.toMillis() : 0) : 0;
+                return tb - ta;
+            });
             container.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px">
                 ${sorted.map(s => {
                     const isPdf = s.fileType === 'application/pdf';
+                    const hasSheet = Array.isArray(s.sheetHeaders) && Array.isArray(s.sheetRows);
                     const total = (s.transactions || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
                     const count = (s.transactions || []).length;
+                    let bodyHtml;
+                    if (isPdf) {
+                        bodyHtml = '<div style="font-size:1.05rem;font-weight:700;color:var(--dark);display:flex;align-items:center;gap:6px"><span style="font-size:1.4rem">📄</span> PDF</div><div style="color:var(--gray-dark);font-size:0.85rem">קובץ מצורף</div>';
+                    } else if (hasSheet) {
+                        bodyHtml = `<div style="font-size:1.05rem;font-weight:700;color:var(--dark);display:flex;align-items:center;gap:6px"><span style="font-size:1.4rem">📊</span> אקסל</div><div style="color:var(--gray-dark);font-size:0.85rem">${s.sheetRows.length} שורות · ${s.sheetHeaders.length} עמודות</div>`;
+                    } else {
+                        bodyHtml = `<div style="font-size:1.6rem;font-weight:700;color:var(--dark)">${fmtCurrency(total)}</div><div style="color:var(--gray-dark);font-size:0.85rem">${count} עסקאות</div>`;
+                    }
                     return `
                     <div class="card stmt-card" onclick="showDetail('${s.id}')" style="margin-bottom:0">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start">
-                            <div>
-                                <h3 style="font-size:1.05rem;color:var(--dark);font-weight:700;margin-bottom:4px">${escapeHtml(s.name)}</h3>
-                                <div style="color:var(--gray-dark);font-size:0.88rem">${s.month ? formatYM(s.month) : '—'}${s.last4 ? ' · ••' + escapeHtml(s.last4) : ''}</div>
+                            <div style="flex:1;min-width:0">
+                                <h3 style="font-size:1.05rem;color:var(--dark);font-weight:700;margin-bottom:4px;word-break:break-word">${escapeHtml(s.name)}</h3>
                             </div>
-                            ${getCompanyBadge(s.company)}
                         </div>
                         <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center">
-                            <div>
-                                ${isPdf
-                                    ? '<div style="font-size:1.05rem;font-weight:700;color:var(--dark);display:flex;align-items:center;gap:6px"><span style="font-size:1.4rem">📄</span> PDF</div><div style="color:var(--gray-dark);font-size:0.85rem">קובץ מצורף</div>'
-                                    : `<div style="font-size:1.6rem;font-weight:700;color:var(--dark)">${fmtCurrency(total)}</div><div style="color:var(--gray-dark);font-size:0.85rem">${count} עסקאות</div>`
-                                }
-                            </div>
+                            <div>${bodyHtml}</div>
                             <div style="color:var(--gray)">${ICONS.arrowLeft}</div>
                         </div>
                     </div>`;
@@ -301,7 +309,10 @@
                 return;
             }
 
-            document.getElementById('detailTitle').textContent = editMode ? 'עריכת עסקאות' : 'עסקאות בדף';
+            // Decide which mode: generic spreadsheet (preferred) or legacy transactions
+            const hasSheet = Array.isArray(s.sheetHeaders) && Array.isArray(s.sheetRows);
+
+            document.getElementById('detailTitle').textContent = editMode ? 'עריכת קובץ' : 'תוכן הקובץ';
 
             // ===== EDIT MODE =====
             if (editMode) {
@@ -309,17 +320,54 @@
                     <button class="btn btn-success btn-sm" onclick="saveEditedTransactions()" id="saveEditBtn">${ICONS.check}<span>שמירה</span></button>
                     <button class="btn btn-danger btn-sm" onclick="cancelEdit()">${ICONS.close}<span>ביטול</span></button>
                 `;
-                renderEditableTransactions();
+                if (hasSheet || (Array.isArray(editedSheetRows) && editedSheetRows.length > 0) || (Array.isArray(editedSheetHeaders) && editedSheetHeaders.length > 0)) {
+                    renderEditableSheet();
+                } else {
+                    renderEditableTransactions();
+                }
                 return;
             }
 
             // ===== READ-ONLY MODE =====
+
+            // Generic spreadsheet view (when sheetRows present)
+            if (hasSheet) {
+                const headers = s.sheetHeaders;
+                const rows = s.sheetRows;
+                document.getElementById('detailMeta').innerHTML = `
+                    <span class="stat-pill">שורות: <strong>${rows.length}</strong></span>
+                    <span class="stat-pill">עמודות: <strong>${headers.length}</strong></span>
+                `;
+                actionsEl.innerHTML = `
+                    <button class="btn btn-primary btn-sm" onclick="enterEditMode()">${ICONS.edit}<span>ערוך קובץ</span></button>
+                    <button class="btn btn-outline btn-sm" onclick="deleteCurrentStatement()">${ICONS.trash}<span>מחק דף</span></button>
+                `;
+                const container = document.getElementById('transactionsContainer');
+                if (rows.length === 0) {
+                    container.innerHTML = `<div class="empty-state"><h3>הקובץ ריק</h3><p>לחץ על "ערוך קובץ" כדי להוסיף שורות</p></div>`;
+                    return;
+                }
+                container.innerHTML = `
+                    <div style="overflow-x:auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>${headers.map(h => `<th>${escapeHtml(h || '—')}</th>`).join('')}</tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map(r => `
+                                <tr>${headers.map((_, idx) => `<td>${escapeHtml(r[idx] ?? '')}</td>`).join('')}</tr>`).join('')}
+                        </tbody>
+                    </table>
+                    </div>`;
+                return;
+            }
+
+            // Legacy transactions view (only if no sheet data)
             const txns = s.transactions || [];
             const total = txns.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
             document.getElementById('detailMeta').innerHTML = `
                 <span class="stat-pill">סך: <strong>${fmtCurrency(total)}</strong></span>
                 <span class="stat-pill">עסקאות: <strong>${txns.length}</strong></span>
-                ${s.company ? `<span class="stat-pill">סוג: <strong>${escapeHtml(getCompanyName(s.company))}</strong></span>` : ''}
             `;
 
             actionsEl.innerHTML = `
@@ -359,14 +407,96 @@
         function enterEditMode() {
             if (!currentStatement) return;
             editMode = true;
-            editedTxns = JSON.parse(JSON.stringify(currentStatement.transactions || []));
+            const hasSheet = Array.isArray(currentStatement.sheetHeaders) && Array.isArray(currentStatement.sheetRows);
+            if (hasSheet) {
+                editedSheetHeaders = [...currentStatement.sheetHeaders];
+                editedSheetRows = currentStatement.sheetRows.map(r => [...r]);
+                editedTxns = [];
+            } else {
+                editedTxns = JSON.parse(JSON.stringify(currentStatement.transactions || []));
+                editedSheetHeaders = [];
+                editedSheetRows = [];
+            }
             showDetail(currentStatement.id);
         }
 
         function cancelEdit() {
             editMode = false;
             editedTxns = [];
+            editedSheetHeaders = [];
+            editedSheetRows = [];
             if (currentStatement) showDetail(currentStatement.id);
+        }
+
+        // ===== Generic sheet editor =====
+
+        function renderEditableSheet() {
+            document.getElementById('detailMeta').innerHTML = `
+                <span class="stat-pill">שורות: <strong id="editRowCount">${editedSheetRows.length}</strong></span>
+                <span class="stat-pill">עמודות: <strong id="editColCount">${editedSheetHeaders.length}</strong></span>
+                <span class="stat-pill" style="background:#fef3c7;color:#92400e">מצב עריכה</span>
+            `;
+
+            const container = document.getElementById('transactionsContainer');
+            const headersHtml = editedSheetHeaders.map((h, ci) => `
+                <th style="padding:6px 8px;min-width:120px">
+                    <input type="text" value="${escapeHtml(h || '')}" onchange="updateSheetHeader(${ci}, this.value)" style="width:100%;border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-weight:600;font-size:0.85rem;background:white" placeholder="כותרת">
+                </th>`).join('');
+            const rowsHtml = editedSheetRows.map((row, ri) => `
+                <tr>
+                    ${editedSheetHeaders.map((_, ci) => `
+                        <td style="padding:4px 6px">
+                            <input type="text" value="${escapeHtml(row[ci] ?? '')}" oninput="updateSheetCell(${ri}, ${ci}, this.value)" style="width:100%;border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:0.88rem">
+                        </td>`).join('')}
+                    <td style="padding:4px 6px;width:40px"><button type="button" class="btn-icon danger" onclick="deleteSheetRow(${ri})" title="מחק שורה">${ICONS.trash}</button></td>
+                </tr>`).join('');
+
+            container.innerHTML = `
+                <div style="overflow-x:auto;max-width:100%">
+                <table class="data-table" style="min-width:100%">
+                    <thead>
+                        <tr>${headersHtml}<th style="width:40px"></th></tr>
+                    </thead>
+                    <tbody id="editSheetTbody">${rowsHtml || '<tr><td colspan="' + (editedSheetHeaders.length + 1) + '" style="text-align:center;color:var(--gray-dark);padding:24px">אין שורות. לחץ על "הוסף שורה" כדי להוסיף.</td></tr>'}</tbody>
+                </table>
+                </div>
+                <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="addSheetRow()">${ICONS.plus}<span>הוסף שורה</span></button>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="addSheetColumn()">${ICONS.plus}<span>הוסף עמודה</span></button>
+                    ${editedSheetHeaders.length > 0 ? `<button type="button" class="btn btn-outline btn-sm" onclick="removeLastSheetColumn()">${ICONS.trash}<span>הסר עמודה אחרונה</span></button>` : ''}
+                </div>`;
+        }
+
+        function updateSheetCell(ri, ci, value) {
+            if (!editedSheetRows[ri]) return;
+            editedSheetRows[ri][ci] = value;
+        }
+
+        function updateSheetHeader(ci, value) {
+            editedSheetHeaders[ci] = value;
+        }
+
+        function addSheetRow() {
+            editedSheetRows.push(editedSheetHeaders.map(() => ''));
+            renderEditableSheet();
+        }
+
+        function deleteSheetRow(ri) {
+            editedSheetRows.splice(ri, 1);
+            renderEditableSheet();
+        }
+
+        function addSheetColumn() {
+            editedSheetHeaders.push('עמודה חדשה');
+            editedSheetRows.forEach(r => r.push(''));
+            renderEditableSheet();
+        }
+
+        function removeLastSheetColumn() {
+            if (editedSheetHeaders.length === 0) return;
+            editedSheetHeaders.pop();
+            editedSheetRows.forEach(r => r.pop());
+            renderEditableSheet();
         }
 
         function renderEditableTransactions() {
@@ -427,21 +557,37 @@
             const btn = document.getElementById('saveEditBtn');
             if (btn) { btn.disabled = true; btn.innerHTML = ICONS.check + '<span>שמירה...</span>'; }
             try {
-                const cleaned = editedTxns.map(t => ({
-                    date: t.date || '',
-                    merchant: t.merchant || '',
-                    amount: Number(t.amount) || 0,
-                    installment: t.installment || '',
-                    notes: t.notes || '',
-                })).filter(t => t.date || t.merchant || t.amount);
-                const totalAmount = cleaned.reduce((s, t) => s + (Number(t.amount) || 0), 0);
-                await Statements.update(currentStatement.id, {
-                    transactions: cleaned,
-                    transactionCount: cleaned.length,
-                    totalAmount: totalAmount,
-                });
+                const editingSheet = editedSheetHeaders.length > 0 || editedSheetRows.length > 0
+                    || (Array.isArray(currentStatement.sheetHeaders) && Array.isArray(currentStatement.sheetRows));
+
+                if (editingSheet) {
+                    const headers = editedSheetHeaders.map(h => String(h ?? ''));
+                    const rows = editedSheetRows
+                        .map(r => headers.map((_, ci) => String(r[ci] ?? '')))
+                        .filter(r => r.some(v => String(v).trim() !== ''));
+                    await Statements.update(currentStatement.id, {
+                        sheetHeaders: headers,
+                        sheetRows: rows,
+                    });
+                } else {
+                    const cleaned = editedTxns.map(t => ({
+                        date: t.date || '',
+                        merchant: t.merchant || '',
+                        amount: Number(t.amount) || 0,
+                        installment: t.installment || '',
+                        notes: t.notes || '',
+                    })).filter(t => t.date || t.merchant || t.amount);
+                    const totalAmount = cleaned.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+                    await Statements.update(currentStatement.id, {
+                        transactions: cleaned,
+                        transactionCount: cleaned.length,
+                        totalAmount: totalAmount,
+                    });
+                }
                 editMode = false;
                 editedTxns = [];
+                editedSheetHeaders = [];
+                editedSheetRows = [];
                 if (currentStatement) showDetail(currentStatement.id);
             } catch (err) {
                 showAlert('שגיאה בשמירה: ' + err.message);
@@ -453,6 +599,8 @@
             currentStatement = null;
             editMode = false;
             editedTxns = [];
+            editedSheetHeaders = [];
+            editedSheetRows = [];
             document.getElementById('detailView').style.display = 'none';
             document.getElementById('listView').style.display = 'block';
             document.getElementById('pageTitle').textContent = 'כלל דפים';
@@ -758,7 +906,20 @@
                 payload.fileName = pdfFile.name;
                 payload.fileSize = pdfFile.size;
             } else {
-                // Auto-parse if columns were detected; otherwise save with empty transactions
+                // Save the RAW spreadsheet data (headers + all rows) so it can be edited later
+                const cleanHeaders = (detectedHeaders || []).map(h => String(h ?? '').trim());
+                const cleanRows = (parsedRows || []).map(r =>
+                    cleanHeaders.map((_, idx) => {
+                        const v = r[idx];
+                        if (v === null || v === undefined) return '';
+                        if (v instanceof Date) return v.toISOString().slice(0,10);
+                        return String(v);
+                    })
+                );
+                payload.sheetHeaders = cleanHeaders;
+                payload.sheetRows = cleanRows;
+
+                // Also keep auto-detected transactions for backward compat / dashboard total
                 let transactions = [];
                 if (columnMapping.date >= 0 || columnMapping.merchant >= 0 || columnMapping.amount >= 0) {
                     transactions = parseTransactions();
