@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
     <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
     <title>התוכנה של עמרי - כלל דפים</title>
-    <link rel="stylesheet" href="app.css?v=31">
+    <link rel="stylesheet" href="app.css?v=32">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -117,6 +117,53 @@
         #transactionsContainer .data-table tbody tr:hover {
             background-color: transparent !important;
         }
+
+        /* Mobile (phone): convert spreadsheet table to cards (one card per row) */
+        @media (max-width: 768px) {
+            #transactionsContainer .sheet-table { border: none !important; }
+            #transactionsContainer .sheet-table thead { display: none !important; }
+            #transactionsContainer .sheet-table,
+            #transactionsContainer .sheet-table tbody,
+            #transactionsContainer .sheet-table tr,
+            #transactionsContainer .sheet-table td {
+                display: block !important;
+                width: 100% !important;
+            }
+            #transactionsContainer .sheet-table tbody tr {
+                margin-bottom: 12px;
+                background: white;
+                border: 1px solid var(--border) !important;
+                border-radius: var(--radius);
+                padding: 12px 14px;
+                box-shadow: var(--shadow-sm);
+            }
+            #transactionsContainer .sheet-table tbody td {
+                display: flex !important;
+                justify-content: space-between;
+                align-items: center;
+                gap: 12px;
+                padding: 6px 0 !important;
+                border: none !important;
+                text-align: right;
+                font-size: 0.95rem;
+            }
+            #transactionsContainer .sheet-table tbody td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--gray-dark);
+                font-size: 0.82rem;
+                flex-shrink: 0;
+                text-align: right;
+            }
+            #transactionsContainer .sheet-table tbody td:empty,
+            #transactionsContainer .sheet-table tbody td[data-label=""]:empty { display: none !important; }
+            /* Highlight totals row as a distinct yellow card */
+            #transactionsContainer .sheet-table tr.totals-row {
+                background: #fff3cd !important;
+                border-color: #f59e0b !important;
+            }
+            #transactionsContainer .sheet-table tr.totals-row td[data-label=""]::before { content: ''; }
+        }
     </style>
 </head>
 <body>
@@ -191,7 +238,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=57"></script>
+    <script src="app.js?v=58"></script>
     <script>
         document.getElementById('uploadBtn').innerHTML = ICONS.plus + '<span>העלה אקסל / PDF</span>';
         document.getElementById('closeUpBtn').innerHTML = ICONS.close;
@@ -379,14 +426,14 @@
 
         function renderTotalsRow(headers, totals) {
             const colMap = new Map(totals.columnTotals.map(c => [c.header, c]));
-            return `<tr style="background:#fff3cd;font-weight:700;font-size:1.05rem">
+            return `<tr class="totals-row" style="background:#fff3cd;font-weight:700;font-size:1.05rem">
                 ${headers.map((h, idx) => {
-                    if (idx === 0) return '<td style="padding:12px"><strong>סה"כ</strong></td>';
+                    if (idx === 0) return `<td data-label="${escapeHtml(h || '')}" style="padding:12px"><strong>סה"כ</strong></td>`;
                     const col = colMap.get(h);
                     if (col) {
-                        return `<td style="white-space:nowrap;color:var(--primary);padding:12px">${fmtCurrency(col.sum)}</td>`;
+                        return `<td data-label="${escapeHtml(h || '')}" style="white-space:nowrap;color:var(--primary);padding:12px">${fmtCurrency(col.sum)}</td>`;
                     }
-                    return '<td style="padding:12px"></td>';
+                    return `<td data-label="${escapeHtml(h || '')}" style="padding:12px"></td>`;
                 }).join('')}
             </tr>`;
         }
@@ -463,14 +510,14 @@
                 const totalsRowHtml = totals.hasNumeric ? renderTotalsRow(headers, totals) : '';
                 container.innerHTML = `
                     <div style="overflow-x:auto">
-                    <table class="data-table">
+                    <table class="data-table sheet-table">
                         <thead>
                             <tr>${headers.map(h => `<th>${escapeHtml(h || '')}</th>`).join('')}</tr>
                         </thead>
                         <tbody>
                             ${rows.map(r => {
                                 const vals = (r && r.values) || [];
-                                return `<tr>${headers.map((_, idx) => `<td>${escapeHtml(vals[idx] ?? '')}</td>`).join('')}</tr>`;
+                                return `<tr>${headers.map((h, idx) => `<td data-label="${escapeHtml(h || '')}">${escapeHtml(vals[idx] ?? '')}</td>`).join('')}</tr>`;
                             }).join('')}
                             ${totalsRowHtml}
                         </tbody>
