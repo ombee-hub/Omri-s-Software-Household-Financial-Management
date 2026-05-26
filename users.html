@@ -193,7 +193,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=59"></script>
+    <script src="app.js?v=60"></script>
     <script>
         document.getElementById('closeBtn').innerHTML = ICONS.close;
         document.getElementById('dnCloseBtn').innerHTML = ICONS.close;
@@ -261,9 +261,26 @@
                             <button class="btn btn-outline btn-sm" onclick="openModal('displayNameModal')">${ICONS.edit}<span>שנה שם</span></button>
                             <button class="btn btn-outline btn-sm" onclick="openModal('passwordModal')">${ICONS.lock}<span>שנה סיסמה</span></button>
                         </div>
-                    ` : ''}
+                    ` : `
+                        <div class="user-actions">
+                            <button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger)" onclick="removeStaleProfile('${escapeHtml(u.id)}', '${escapeHtml(u.displayName || u.email || 'משתמש')}')">${ICONS.trash || ''}<span>מחק רשומה</span></button>
+                        </div>
+                    `}
                 </div>`;
             }).join('');
+        }
+
+        async function removeStaleProfile(uid, label) {
+            const ok = await showConfirm(
+                `למחוק את הרשומה של "${label}" מהמערכת?\n\nזה מוחק רק את הרשומה ב-Firestore — אם המשתמש קיים גם ב-Firebase Authentication, צריך למחוק אותו שם בנפרד.`,
+                { title: 'אישור מחיקה', confirmText: 'מחק', danger: true }
+            );
+            if (!ok) return;
+            try {
+                await Profiles.remove(uid);
+            } catch (err) {
+                showAlert('שגיאה במחיקה: ' + (err.message || err));
+            }
         }
 
         async function saveDisplayName(e) {

@@ -354,6 +354,12 @@ const Profiles = {
         // Also update Firebase Auth profile so it persists across the app
         try { await auth.currentUser?.updateProfile({ displayName }); } catch (e) {}
     },
+    // Remove a stale profile record (e.g. old/abandoned UIDs left in Firestore).
+    // This only deletes the Firestore entry — Auth account, if any, lives in
+    // Firebase Console.
+    async remove(uid) {
+        await db.collection('users').doc(uid).delete();
+    },
 };
 
 // Fallback: hide splash after 3s even if auth never resolves (offline w/ no cache)
