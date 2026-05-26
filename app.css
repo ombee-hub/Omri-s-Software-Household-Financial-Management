@@ -764,6 +764,7 @@ main { padding-bottom: 60px; }
     justify-content: center;
     z-index: 9999;
     transition: opacity 0.5s ease, visibility 0.5s ease;
+    pointer-events: none;
 }
 
 .splash.hide {

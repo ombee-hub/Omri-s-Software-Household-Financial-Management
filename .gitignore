@@ -8,3 +8,6 @@ Thumbs.db
 *.swo
 .env
 .env.local
+.firebase/
+firebase-debug.log
+.claude/

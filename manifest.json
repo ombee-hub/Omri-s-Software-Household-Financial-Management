@@ -6,17 +6,35 @@
     "scope": "./",
     "display": "standalone",
     "orientation": "portrait",
-    "background_color": "#f7f9fc",
+    "background_color": "#ffffff",
     "theme_color": "#1e3a5f",
     "lang": "he",
     "dir": "rtl",
     "categories": ["finance", "productivity", "lifestyle"],
     "icons": [
         {
-            "src": "images/Omri's%20Software%20-%20icon.png",
-            "sizes": "any",
+            "src": "images/icon-192.png",
+            "sizes": "192x192",
             "type": "image/png",
             "purpose": "any"
+        },
+        {
+            "src": "images/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "images/icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "images/icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
         }
     ]
 }

@@ -12,8 +12,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="התוכנה של עמרי">
     <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="images/Omri's%20Software%20-%20icon.png">
-    <link rel="icon" type="image/png" href="images/Omri's%20Software%20-%20icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="images/icon-180.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="images/icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="images/icon-512.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="images/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="images/icon-512.png">
     <title>התוכנה של עמרי - מחשבון</title>
     <link rel="stylesheet" href="app.css?v=32">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -229,7 +232,6 @@
                 </div>
                 <div class="history-list" id="historyList">
                     <div class="empty-state" style="padding:30px 10px">
-                        <div class="empty-icon">${''}</div>
                         <h3 style="font-size:1rem">עדיין אין חישובים</h3>
                         <p style="font-size:0.88rem">חישובים שתבצעו יופיעו כאן</p>
                     </div>
@@ -238,7 +240,7 @@
         </div>
     </main>
 
-    <script src="app.js?v=58"></script>
+    <script src="app.js?v=59"></script>
     <script>
         function escapeHtml(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
@@ -463,8 +465,7 @@
         }
 
         async function clearHistory() {
-            if (!await showConfirm('למחוק את כל ההיסטוריה?
-פעולה זו אינה הפיכה.', { title: 'אישור מחיקה', confirmText: 'מחק הכל', danger: true })) return;
+            if (!await showConfirm('למחוק את כל ההיסטוריה?\nפעולה זו אינה הפיכה.', { title: 'אישור מחיקה', confirmText: 'מחק הכל', danger: true })) return;
             try {
                 const all = await Calculations.all();
                 await Promise.all(all.map(c => Calculations.remove(c.id)));
