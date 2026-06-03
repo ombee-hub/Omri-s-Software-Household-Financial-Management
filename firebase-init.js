@@ -15,9 +15,9 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Login persists ONLY within the current session (tab/PWA window).
-// When user closes the app/tab, they need to log in again on re-entry.
-auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(() => {});
+// Login persists until the user explicitly logs out (survives closing/reopening
+// the tab or app). Sign-out happens only via the logout button.
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
 
 // Enable Firestore offline persistence - app works even without internet.
 // Data is cached locally (IndexedDB) and changes sync when connection returns.

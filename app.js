@@ -365,31 +365,6 @@ const Profiles = {
 // Fallback: hide splash after 3s even if auth never resolves (offline w/ no cache)
 setTimeout(() => hideSplash(), 3000);
 
-// ===== Auto-logout when app is minimized/backgrounded =====
-// As soon as the app becomes hidden (user switches apps, locks screen, or
-// closes the PWA), sign out. Next open requires fresh login.
-const LOGOUT_AFTER_HIDDEN_MS = 0; // immediate
-let hiddenTimerId = null;
-
-document.addEventListener('visibilitychange', () => {
-    // Don't trigger logout flow on the login page itself - user isn't signed in
-    // there, and a forced reload would clear whatever they were typing.
-    if (isLoginPage) return;
-
-    if (document.hidden) {
-        hiddenTimerId = setTimeout(() => {
-            auth.signOut().finally(() => {
-                window.location.replace(AUTH_PAGE);
-            });
-        }, LOGOUT_AFTER_HIDDEN_MS);
-    } else {
-        if (hiddenTimerId) {
-            clearTimeout(hiddenTimerId);
-            hiddenTimerId = null;
-        }
-    }
-});
-
 // ===== Categories =====
 const BILL_CATEGORIES = [
     { value: 'electricity', label: 'חשמל' },
@@ -404,7 +379,7 @@ const BILL_CATEGORIES = [
     { value: 'mortgage', label: 'משכנתא' },
     { value: 'rent', label: 'שכר דירה' },
     { value: 'subscription', label: 'מנויים' },
-    { value: 'other', label: 'אחר' },
+    { value: 'other', label: 'קניות' },
 ];
 
 const DOC_CATEGORIES = [

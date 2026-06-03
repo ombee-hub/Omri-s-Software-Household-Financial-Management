@@ -192,18 +192,12 @@
                     </div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">סטטוס תשלום החודש</label>
-                        <select id="billPaidStatus" class="form-select">
-                            <option value="unpaid">לא שולם</option>
-                            <option value="paid">שולם</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">אמצעי תשלום</label>
-                        <input type="text" id="billCardName" class="form-input" placeholder="ויזה ••1234, או מזומן">
-                    </div>
+                <div class="form-group">
+                    <label class="form-label">סטטוס תשלום החודש</label>
+                    <select id="billPaidStatus" class="form-select">
+                        <option value="unpaid">לא שולם</option>
+                        <option value="paid">שולם</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -364,12 +358,11 @@
             container.innerHTML = `
                 <table class="data-table">
                     <thead>
-                        <tr><th>חשבון</th><th>קטגוריה</th><th>סכום</th><th>אמצעי תשלום</th><th>קובץ</th><th>סטטוס</th><th></th></tr>
+                        <tr><th>חשבון</th><th>קטגוריה</th><th>סכום</th><th>קובץ</th><th>סטטוס</th><th></th></tr>
                     </thead>
                     <tbody>
                         ${sorted.map(b => {
                             const cat = getBillCategory(b.category);
-                            const cardLabel = b.cardName || '—';
                             const entry = billMonthEntry(b, currentYM());
                             const paid = !!entry;
                             const paidAmountText = paid && entry.amount ? `<br><small style="color:var(--gray-dark)">שולם ${fmtCurrency(entry.amount)}${entry.paidAt ? ' ב-' + fmtDate(entry.paidAt) : ''}</small>` : '';
@@ -382,7 +375,6 @@
                                 <td data-label="חשבון"><strong>${escapeHtml(b.name)}</strong>${b.notes ? '<br><small style="color:var(--gray-dark)">' + escapeHtml(b.notes) + '</small>' : ''}${paidAmountText}</td>
                                 <td data-label="קטגוריה">${cat.label}</td>
                                 <td data-label="סכום">${fmtCurrency(b.amount)}</td>
-                                <td data-label="אמצעי תשלום">${escapeHtml(cardLabel)}</td>
                                 <td data-label="קובץ">${fileBtn}</td>
                                 <td data-label="סטטוס">
                                     <button class="btn btn-sm ${paid ? 'btn-success' : 'btn-outline'}" onclick="onTogglePaid('${b.id}')">
@@ -587,7 +579,6 @@
                     document.getElementById('billCategory').value = b.category || '';
                     document.getElementById('billAmount').value = b.amount || '';
                     document.getElementById('billPaidStatus').value = billMonthEntry(b, currentYM()) ? 'paid' : 'unpaid';
-                    document.getElementById('billCardName').value = b.cardName || '';
                     document.getElementById('billNotes').value = b.notes || '';
                     document.getElementById('billModalTitle').textContent = 'עריכת חשבון';
                     if (b.fileData) {
@@ -615,7 +606,6 @@
                 name: document.getElementById('billName').value.trim(),
                 category: document.getElementById('billCategory').value,
                 amount: amount,
-                cardName: document.getElementById('billCardName').value.trim() || null,
                 notes: document.getElementById('billNotes').value.trim(),
             };
             // Only include file fields if the file was actually changed in this session
