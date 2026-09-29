@@ -1,6 +1,6 @@
 {
     "hosting": {
-        "public": "../public",
+        "public": "public",
         "ignore": [
             "**/.*",
             "*.md"
@@ -38,6 +38,6 @@
         ]
     },
     "firestore": {
-        "rules": "firestore.rules"
+        "rules": "config/firestore.rules"
     }
 }
