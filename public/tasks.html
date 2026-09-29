@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="theme-color" content="#6b2f5a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="החתונה שלנו">
+    <link rel="manifest" href="config/manifest.json">
+    <link rel="apple-touch-icon" href="images/heart-icon.png">
+    <link rel="icon" type="image/png" href="images/heart-icon.png">
+    <title>החתונה שלנו - משימות</title>
+    <link rel="stylesheet" href="css/app.css?v=44">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-init.js"></script>
+</head>
+<body>
+    <div class="splash" id="splash"><div class="splash-heart"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div></div>
+    <div id="appHeader"></div>
+
+    <div class="page-title-bar">
+        <div class="container">
+            <h2>משימות לחתונה</h2>
+            <div class="subtitle">מה צריך לעשות, עד מתי ומי אחראי.</div>
+        </div>
+    </div>
+
+    <main class="container">
+        <div class="card" id="progressCard" style="display:none">
+            <div style="display:flex;justify-content:space-between;font-size:0.92rem;margin-bottom:8px">
+                <strong>התקדמות</strong><span id="progressText"></span>
+            </div>
+            <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+
+        <div class="toolbar">
+            <div class="filters-bar" style="margin-bottom:0">
+                <select id="filterStatus" class="form-select" onchange="render()">
+                    <option value="open">פתוחות</option>
+                    <option value="done">הושלמו</option>
+                    <option value="">הכל</option>
+                </select>
+                <select id="filterAssignee" class="form-select" onchange="render()"><option value="">כל האחראים</option></select>
+            </div>
+            <div class="toolbar-actions">
+                <button class="btn btn-outline" onclick="addTemplateTasks()" id="templateBtn"></button>
+                <button class="btn btn-primary" onclick="openTaskModal()" id="addTaskBtn"></button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div id="tasksContainer"></div>
+        </div>
+    </main>
+
+    <div class="modal-backdrop" id="taskModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="taskModalTitle">הוספת משימה</div>
+                <button class="modal-close" onclick="closeModal('taskModal')" data-icon="close"></button>
+            </div>
+            <form id="taskForm" onsubmit="saveTask(event)">
+                <input type="hidden" id="taskId">
+                <div class="form-group">
+                    <label class="form-label">משימה <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="taskTitle" class="form-input" placeholder="לדוגמה: לסגור צלם" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">עד תאריך</label>
+                        <input type="date" id="taskDate" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">אחראי</label>
+                        <input type="text" id="taskAssignee" class="form-input" list="assigneeList">
+                        <datalist id="assigneeList"></datalist>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">עדיפות</label>
+                    <select id="taskPriority" class="form-select">
+                        <option value="low">רגילה</option>
+                        <option value="medium">בינונית</option>
+                        <option value="high">גבוהה</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">הערות</label>
+                    <textarea id="taskNotes" class="form-textarea" style="min-height:60px"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">שמירה</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('taskModal')">ביטול</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/app.js?v=75"></script>
+    <script>
+        document.getElementById('addTaskBtn').innerHTML = ICONS.plus + '<span>הוספת משימה</span>';
+        document.getElementById('templateBtn').innerHTML = ICONS.task + '<span>רשימת משימות מומלצת</span>';
+        document.querySelectorAll('[data-icon="close"]').forEach(b => b.innerHTML = ICONS.close);
+
+        // Recommended checklist; due date = wedding date minus daysBefore
+        const TEMPLATE_TASKS = [
+            { title: 'לקבוע תקציב ורשימת מוזמנים ראשונית', daysBefore: 365, priority: 'high' },
+            { title: 'לסגור אולם / גן אירועים', daysBefore: 330, priority: 'high' },
+            { title: 'לסגור צלם ווידאו', daysBefore: 300, priority: 'high' },
+            { title: 'לסגור DJ / להקה', daysBefore: 300, priority: 'medium' },
+            { title: 'לבחור רב / עורך טקס', daysBefore: 240, priority: 'medium' },
+            { title: 'שמלת כלה – מדידות והזמנה', daysBefore: 240, priority: 'high' },
+            { title: 'עיצוב ופרחים', daysBefore: 180, priority: 'medium' },
+            { title: 'ירח דבש – טיסות ומלון', daysBefore: 120, priority: 'low' },
+            { title: 'לפתוח תיק ברבנות', daysBefore: 90, priority: 'high' },
+            { title: 'טבעות', daysBefore: 90, priority: 'medium' },
+            { title: 'חליפת חתן', daysBefore: 90, priority: 'medium' },
+            { title: 'איפור ושיער – ניסיון', daysBefore: 90, priority: 'low' },
+            { title: 'לעצב ולהדפיס הזמנות', daysBefore: 75, priority: 'medium' },
+            { title: 'לשלוח הזמנות', daysBefore: 45, priority: 'high' },
+            { title: 'סבב אישורי הגעה בטלפון', daysBefore: 14, priority: 'high' },
+            { title: 'לסגור כמות מנות סופית מול האולם', daysBefore: 7, priority: 'high' },
+            { title: 'סידורי הושבה סופיים', daysBefore: 7, priority: 'high' },
+            { title: 'להכין תשלומים לספקים ביום האירוע', daysBefore: 3, priority: 'medium' },
+        ];
+
+        let tasksData = [];
+
+        function priorityBadge(p) {
+            if (p === 'high') return '<span class="badge badge-danger">גבוהה</span>';
+            if (p === 'medium') return '<span class="badge badge-warning">בינונית</span>';
+            return '';
+        }
+
+        function refreshAssignees() {
+            const s = weddingSettings;
+            const names = new Set([s.groomName, s.brideName, 'שנינו', 'ההורים'].filter(Boolean));
+            tasksData.forEach(t => { if (t.assignee) names.add(t.assignee); });
+            document.getElementById('assigneeList').innerHTML = [...names].map(n => `<option value="${escapeHtml(n)}">`).join('');
+            const f = document.getElementById('filterAssignee');
+            const cur = f.value;
+            const used = [...new Set(tasksData.map(t => t.assignee).filter(Boolean))];
+            f.innerHTML = '<option value="">כל האחראים</option>' + used.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+            f.value = used.includes(cur) ? cur : '';
+        }
+
+        function render() {
+            const done = tasksData.filter(t => t.done).length;
+            document.getElementById('progressCard').style.display = tasksData.length ? '' : 'none';
+            document.getElementById('progressText').textContent = `${fmtNum(done)} מתוך ${fmtNum(tasksData.length)} הושלמו`;
+            document.getElementById('progressFill').style.width = (tasksData.length ? done / tasksData.length * 100 : 0) + '%';
+
+            const status = document.getElementById('filterStatus').value;
+            const assignee = document.getElementById('filterAssignee').value;
+            let tasks = tasksData.filter(t => {
+                if (status === 'open' && t.done) return false;
+                if (status === 'done' && !t.done) return false;
+                if (assignee && t.assignee !== assignee) return false;
+                return true;
+            });
+
+            const container = document.getElementById('tasksContainer');
+            if (!tasks.length) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">${ICONS.check}</div>
+                        <h3>${tasksData.length ? 'אין משימות כאן' : 'עוד אין משימות'}</h3>
+                        <p>${tasksData.length ? '' : 'לחצו על "רשימת משימות מומלצת" כדי להתחיל עם רשימה מוכנה'}</p>
+                    </div>`;
+                return;
+            }
+            tasks.sort((a, b) => (a.done - b.done) || (a.date || '9999').localeCompare(b.date || '9999'));
+            const today = todayISO();
+            container.innerHTML = tasks.map(t => {
+                const overdue = !t.done && t.date && t.date < today;
+                return `
+                <div class="task-row ${t.done ? 'done' : ''}">
+                    <input type="checkbox" class="task-checkbox" ${t.done ? 'checked' : ''} onchange="toggleDone('${t.id}')" aria-label="בוצע">
+                    <div class="task-content">
+                        <div class="task-title">${escapeHtml(t.title)}</div>
+                        <div class="task-meta">
+                            ${t.date ? `<span>${ICONS.calendar} ${fmtDate(t.date)}${overdue ? ' <span class="badge badge-danger">באיחור</span>' : ''}</span>` : ''}
+                            ${t.assignee ? `<span>${ICONS.users} ${escapeHtml(t.assignee)}</span>` : ''}
+                            ${priorityBadge(t.priority)}
+                            ${t.notes ? `<span>${escapeHtml(t.notes)}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-icon" onclick="openTaskModal('${t.id}')" title="עריכה">${ICONS.edit}</button>
+                        <button class="btn-icon danger" onclick="deleteTask('${t.id}')" title="מחיקה">${ICONS.trash}</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function openTaskModal(id) {
+            document.getElementById('taskForm').reset();
+            document.getElementById('taskId').value = '';
+            document.getElementById('taskModalTitle').textContent = 'הוספת משימה';
+            document.getElementById('taskPriority').value = 'low';
+            const t = id && tasksData.find(x => x.id === id);
+            if (t) {
+                document.getElementById('taskId').value = t.id;
+                document.getElementById('taskTitle').value = t.title || '';
+                document.getElementById('taskDate').value = t.date || '';
+                document.getElementById('taskAssignee').value = t.assignee || '';
+                document.getElementById('taskPriority').value = t.priority || 'low';
+                document.getElementById('taskNotes').value = t.notes || '';
+                document.getElementById('taskModalTitle').textContent = 'עריכת משימה';
+            }
+            openModal('taskModal');
+        }
+
+        async function saveTask(e) {
+            e.preventDefault();
+            const id = document.getElementById('taskId').value;
+            const data = {
+                title: document.getElementById('taskTitle').value.trim(),
+                date: document.getElementById('taskDate').value || null,
+                assignee: document.getElementById('taskAssignee').value.trim(),
+                priority: document.getElementById('taskPriority').value,
+                notes: document.getElementById('taskNotes').value.trim(),
+            };
+            try {
+                if (id) await Tasks.update(id, data);
+                else await Tasks.add({ ...data, done: false });
+                closeModal('taskModal');
+            } catch (err) { showAlert('שגיאה בשמירה: ' + err.message); }
+        }
+
+        async function addTemplateTasks() {
+            const existing = new Set(tasksData.map(t => t.title));
+            const toAdd = TEMPLATE_TASKS.filter(t => !existing.has(t.title));
+            if (!toAdd.length) { showAlert('כל המשימות המומלצות כבר ברשימה'); return; }
+            const wd = weddingSettings.weddingDate;
+            const ok = await showConfirm(`להוסיף ${toAdd.length} משימות מומלצות?` + (wd ? '\nתאריכי היעד יחושבו לפי תאריך החתונה.' : '\nכדאי להגדיר קודם תאריך חתונה בהגדרות, כדי שיחושבו תאריכי יעד.'), { title: 'רשימת משימות מומלצת', emoji: '📋' });
+            if (!ok) return;
+            const today = todayISO();
+            const docs = toAdd.map(t => {
+                let date = null;
+                if (wd) {
+                    const [y, m, d] = wd.split('-').map(Number);
+                    const due = new Date(y, m - 1, d - t.daysBefore);
+                    date = due.getFullYear() + '-' + String(due.getMonth() + 1).padStart(2, '0') + '-' + String(due.getDate()).padStart(2, '0');
+                    if (date < today) date = today;
+                }
+                return { title: t.title, date, priority: t.priority, assignee: '', notes: '', done: false };
+            });
+            try { await Tasks.addMany(docs); }
+            catch (err) { showAlert('שגיאה: ' + err.message); }
+        }
+
+        async function toggleDone(id) {
+            try { await Tasks.toggleDone(id); }
+            catch (err) { showAlert('שגיאה: ' + err.message); }
+        }
+
+        async function deleteTask(id) {
+            const t = tasksData.find(x => x.id === id);
+            if (!t || !await confirmDelete(t.title)) return;
+            try { await Tasks.remove(id); }
+            catch (err) { showAlert('שגיאה במחיקה: ' + err.message); }
+        }
+
+        document.getElementById('tasksContainer').innerHTML = '<div class="empty-state"><h3>טוען...</h3></div>';
+        document.addEventListener('settings:change', refreshAssignees);
+        document.addEventListener('auth:ready', () => {
+            Tasks.subscribe(items => { tasksData = items; refreshAssignees(); render(); });
+        });
+    </script>
+</body>
+</html>

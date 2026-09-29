@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="theme-color" content="#6b2f5a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="החתונה שלנו">
+    <link rel="manifest" href="config/manifest.json">
+    <link rel="apple-touch-icon" href="images/heart-icon.png">
+    <link rel="icon" type="image/png" href="images/heart-icon.png">
+    <title>החתונה שלנו - הגדרות</title>
+    <link rel="stylesheet" href="css/app.css?v=44">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-init.js"></script>
+</head>
+<body>
+    <div class="splash" id="splash"><div class="splash-heart"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div></div>
+    <div id="appHeader"></div>
+
+    <div class="page-title-bar">
+        <div class="container">
+            <h2>הגדרות החתונה</h2>
+            <div class="subtitle">הפרטים האלה משותפים לכל מי שמחובר למערכת.</div>
+        </div>
+    </div>
+
+    <main class="container" style="max-width:760px">
+        <form class="card" id="settingsForm" onsubmit="save(event)">
+            <h3 class="card-title" style="margin-bottom:16px">הזוג והאירוע</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">שם החתן</label>
+                    <input type="text" id="sGroom" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">שם הכלה</label>
+                    <input type="text" id="sBride" class="form-input">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">תאריך החתונה</label>
+                    <input type="date" id="sDate" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">מקום</label>
+                    <input type="text" id="sVenue" class="form-input" placeholder="שם האולם / הגן">
+                </div>
+            </div>
+
+            <h3 class="card-title" style="margin:10px 0 16px">תקציב וספירת אורחים</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">תקציב כולל (₪)</label>
+                    <input type="number" id="sBudget" class="form-input" min="0" step="100">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">מחיר מנה (₪)</label>
+                    <input type="number" id="sPrice" class="form-input" min="0" step="1">
+                    <div class="form-hint">ברירת מחדל כשמוסיפים הוצאה לפי מנה</div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">כמה אחוז מהממתינים צפויים להגיע</label>
+                <input type="number" id="sRate" class="form-input" min="0" max="100" step="5" style="max-width:160px">
+                <div class="form-hint">
+                    צפי ההגעה = מי שאישר + האחוז הזה מתוך מי שעוד לא ענה או ענה "אולי".
+                    בדרך כלל 70%-85%. אפשר להוריד ככל שמתקרבים לאירוע וכבר רוב האנשים ענו.
+                </div>
+            </div>
+
+            <div id="sMsg" style="font-size:0.9rem;margin-bottom:10px;display:none"></div>
+            <div class="modal-footer" style="justify-content:flex-start">
+                <button type="submit" class="btn btn-primary" id="sSaveBtn">שמירה</button>
+            </div>
+        </form>
+    </main>
+
+    <script src="js/app.js?v=75"></script>
+    <script>
+        let dirty = false;
+
+        function fill(s) {
+            document.getElementById('sGroom').value = s.groomName || '';
+            document.getElementById('sBride').value = s.brideName || '';
+            document.getElementById('sDate').value = s.weddingDate || '';
+            document.getElementById('sVenue').value = s.venue || '';
+            document.getElementById('sBudget').value = s.totalBudget || '';
+            document.getElementById('sPrice').value = s.pricePerGuest || '';
+            document.getElementById('sRate').value = s.arrivalRate ?? 80;
+        }
+
+        async function save(e) {
+            e.preventDefault();
+            const msg = document.getElementById('sMsg');
+            const btn = document.getElementById('sSaveBtn');
+            btn.disabled = true;
+            try {
+                await Settings.save({
+                    groomName: document.getElementById('sGroom').value.trim(),
+                    brideName: document.getElementById('sBride').value.trim(),
+                    weddingDate: document.getElementById('sDate').value || '',
+                    venue: document.getElementById('sVenue').value.trim(),
+                    totalBudget: Number(document.getElementById('sBudget').value) || 0,
+                    pricePerGuest: Number(document.getElementById('sPrice').value) || 0,
+                    arrivalRate: Math.min(100, Math.max(0, Number(document.getElementById('sRate').value) || 0)),
+                });
+                msg.style.color = 'var(--success)';
+                msg.textContent = 'נשמר ✓';
+            } catch (err) {
+                msg.style.color = 'var(--danger)';
+                msg.textContent = 'שגיאה בשמירה: ' + err.message;
+            } finally {
+                msg.style.display = 'block';
+                btn.disabled = false;
+                setTimeout(() => { msg.style.display = 'none'; }, 3000);
+            }
+        }
+
+        fill(weddingSettings);
+        // Keep the form in sync with the server until the user starts typing
+        document.getElementById('settingsForm').addEventListener('input', () => { dirty = true; });
+        document.addEventListener('settings:change', (e) => {
+            if (!dirty) fill(e.detail);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+// Firestore Security Rules for מערכת החתונה
+// Publish with (from the config folder):  npx firebase deploy --only firestore:rules
+// or paste into: https://console.firebase.google.com/project/omri-s-software/firestore/rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Only these accounts can read or write data. Being logged in is not enough:
+    // anyone can create a Firebase account with the public API key, so without
+    // this list a stranger could read the guest list and budget.
+    // To add someone (e.g. the parents): create the user in Firebase Console →
+    // Authentication, add their email here (lowercase), and publish the rules.
+    function isMember() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in [
+          'omri@household.local',
+          'sapir@household.local'
+          // 'parent@example.com',
+        ];
+    }
+
+    match /{document=**} {
+      allow read, write: if isMember();
+    }
+  }
+}

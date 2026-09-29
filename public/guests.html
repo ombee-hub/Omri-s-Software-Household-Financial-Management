@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="theme-color" content="#6b2f5a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="החתונה שלנו">
+    <link rel="manifest" href="config/manifest.json">
+    <link rel="apple-touch-icon" href="images/heart-icon.png">
+    <link rel="icon" type="image/png" href="images/heart-icon.png">
+    <title>החתונה שלנו - מוזמנים</title>
+    <link rel="stylesheet" href="css/app.css?v=44">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="js/firebase-init.js"></script>
+</head>
+<body>
+    <div class="splash" id="splash"><div class="splash-heart"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div></div>
+    <div id="appHeader"></div>
+
+    <div class="page-title-bar">
+        <div class="container">
+            <h2>רשימת המוזמנים</h2>
+            <div class="subtitle">כל שורה היא הזמנה (אדם, זוג או משפחה) עם מספר האנשים שלה. סמנו אישורי הגעה ותדעו בדיוק כמה מגיעים.</div>
+        </div>
+    </div>
+
+    <main class="container">
+        <div class="stats-grid" id="statsGrid"></div>
+
+        <div class="toolbar">
+            <div class="toolbar-actions">
+                <button class="btn btn-primary" onclick="openGuestModal()" id="addGuestBtn"></button>
+                <button class="btn btn-outline" onclick="document.getElementById('importFile').click()" id="importBtn"></button>
+                <button class="btn btn-outline" onclick="exportGuests()" id="exportBtn"></button>
+            </div>
+            <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="onImportFile(event)">
+        </div>
+
+        <div class="card">
+            <div class="filters-bar">
+                <div class="search-box" id="searchBox">
+                    <input type="search" id="searchInput" class="form-input" placeholder="חיפוש לפי שם, טלפון או הערה" oninput="render()">
+                </div>
+                <select id="filterSide" class="form-select" onchange="render()"><option value="">כל הצדדים</option></select>
+                <select id="filterGroup" class="form-select" onchange="render()"><option value="">כל הקבוצות</option></select>
+                <select id="filterStatus" class="form-select" onchange="render()"><option value="">כל הסטטוסים</option></select>
+                <select id="sortBy" class="form-select" onchange="render()">
+                    <option value="name">מיון: שם</option>
+                    <option value="group">מיון: קבוצה</option>
+                    <option value="invited">מיון: מספר אנשים</option>
+                    <option value="status">מיון: סטטוס</option>
+                    <option value="recent">מיון: נוספו לאחרונה</option>
+                </select>
+            </div>
+
+            <div class="bulk-bar" id="bulkBar">
+                <strong id="bulkCount"></strong>
+                <select class="form-select" id="bulkStatus" onchange="bulkSetStatus(this)"><option value="">שנה סטטוס...</option></select>
+                <select class="form-select" id="bulkSide" onchange="bulkSetSide(this)"><option value="">שנה צד...</option></select>
+                <button class="btn btn-outline btn-sm" onclick="bulkSetGroup()">שנה קבוצה</button>
+                <button class="btn btn-danger btn-sm" onclick="bulkDelete()">מחק נבחרים</button>
+                <button class="btn btn-outline btn-sm" onclick="clearSelection()">ביטול בחירה</button>
+            </div>
+
+            <div class="result-note" id="resultNote"></div>
+            <div id="guestsContainer"></div>
+        </div>
+    </main>
+
+    <!-- Add / edit guest -->
+    <div class="modal-backdrop" id="guestModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="guestModalTitle">הוספת מוזמן</div>
+                <button class="modal-close" onclick="closeModal('guestModal')" data-icon="close"></button>
+            </div>
+            <form id="guestForm" onsubmit="saveGuest(event)">
+                <input type="hidden" id="guestId">
+                <div class="form-group">
+                    <label class="form-label">שם <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="gName" class="form-input" placeholder="לדוגמה: משפחת כהן / דני ורותם" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">צד</label>
+                        <select id="gSide" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">קבוצה</label>
+                        <input type="text" id="gGroup" class="form-input" list="groupList" placeholder="משפחה / חברים / עבודה...">
+                        <datalist id="groupList"></datalist>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">כמה אנשים בהזמנה</label>
+                        <input type="number" id="gInvited" class="form-input" min="0" step="1" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">טלפון</label>
+                        <input type="tel" id="gPhone" class="form-input" dir="ltr" style="text-align:right">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">אישור הגעה</label>
+                        <select id="gStatus" class="form-select" onchange="syncConfirmedField()"></select>
+                    </div>
+                    <div class="form-group" id="gConfirmedGroup">
+                        <label class="form-label">כמה אישרו</label>
+                        <input type="number" id="gConfirmed" class="form-input" min="0" step="1">
+                        <div class="form-hint">ריק = כל המוזמנים בהזמנה</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">שולחן</label>
+                    <select id="gTable" class="form-select"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">הערות</label>
+                    <textarea id="gNotes" class="form-textarea" style="min-height:60px"></textarea>
+                </div>
+                <div id="guestError" style="color:var(--danger);font-size:0.9rem;margin-bottom:10px;display:none"></div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary" id="saveGuestBtn">שמירה</button>
+                    <button type="button" class="btn btn-outline" id="saveAddAnotherBtn" onclick="saveGuest(event, true)">שמירה והוספת עוד</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('guestModal')">ביטול</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Import from Excel -->
+    <div class="modal-backdrop" id="importModal">
+        <div class="modal" style="max-width:820px">
+            <div class="modal-header">
+                <div class="modal-title">ייבוא מוזמנים מאקסל</div>
+                <button class="modal-close" onclick="closeModal('importModal')" data-icon="close"></button>
+            </div>
+            <div class="info-box">המערכת זיהתה את העמודות אוטומטית. בדקו שכל שדה מחובר לעמודה הנכונה באקסל, ואז לחצו "ייבוא".</div>
+            <div class="form-group" id="importSheetGroup" style="margin-top:12px;display:none">
+                <label class="form-label">גיליון</label>
+                <select id="importSheet" class="form-select" onchange="selectImportSheet()"></select>
+            </div>
+            <div class="map-grid" id="importMap"></div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">צד ברירת מחדל (כשאין עמודת צד)</label>
+                    <select id="importDefaultSide" class="form-select" onchange="renderImportPreview()"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">קבוצה ברירת מחדל</label>
+                    <input type="text" id="importDefaultGroup" class="form-input" list="groupList" oninput="renderImportPreview()">
+                </div>
+            </div>
+            <label style="display:flex;gap:8px;align-items:center;font-size:0.9rem;margin-bottom:10px;cursor:pointer">
+                <input type="checkbox" id="importSkipDupes" checked onchange="renderImportPreview()"> לדלג על מוזמנים שכבר קיימים ברשימה (אותו שם ואותו טלפון)
+            </label>
+            <div id="importSummary"></div>
+            <div class="import-preview" id="importPreview"></div>
+            <div id="importError" style="color:var(--danger);font-size:0.9rem;margin-top:10px;display:none"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="doImportBtn" onclick="doImport()">ייבוא</button>
+                <button type="button" class="btn btn-outline" onclick="closeModal('importModal')">ביטול</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js?v=75"></script>
+    <script>
+        document.getElementById('addGuestBtn').innerHTML = ICONS.plus + '<span>הוספת מוזמן</span>';
+        document.getElementById('importBtn').innerHTML = ICONS.upload + '<span>ייבוא מאקסל</span>';
+        document.getElementById('exportBtn').innerHTML = ICONS.download + '<span>ייצוא לאקסל</span>';
+        document.getElementById('searchBox').insertAdjacentHTML('afterbegin', ICONS.search);
+        document.querySelectorAll('[data-icon="close"]').forEach(b => b.innerHTML = ICONS.close);
+
+        let guestsData = [];
+        let tablesData = [];
+        const selected = new Set();
+
+        // ===== Select options =====
+        function fillSideOptions() {
+            const opts = GUEST_SIDES.map(s => `<option value="${s.value}">${escapeHtml(sideLabel(s.value))}</option>`).join('');
+            document.getElementById('gSide').innerHTML = opts;
+            document.getElementById('importDefaultSide').innerHTML = opts;
+            const f = document.getElementById('filterSide');
+            const cur = f.value;
+            f.innerHTML = '<option value="">כל הצדדים</option>' + opts;
+            f.value = cur;
+            document.getElementById('bulkSide').innerHTML = '<option value="">שנה צד...</option>' + opts;
+        }
+        (function fillStatusOptions() {
+            const opts = RSVP_STATUSES.map(r => `<option value="${r.value}">${r.label}</option>`).join('');
+            document.getElementById('gStatus').innerHTML = opts;
+            document.getElementById('filterStatus').innerHTML = '<option value="">כל הסטטוסים</option>' + opts;
+            document.getElementById('bulkStatus').innerHTML = '<option value="">שנה סטטוס...</option>' + opts;
+        })();
+        fillSideOptions();
+
+        function allGroups() {
+            const set = new Set(DEFAULT_GUEST_GROUPS);
+            guestsData.forEach(g => { if (g.group && g.group.trim()) set.add(g.group.trim()); });
+            return [...set].sort((a, b) => a.localeCompare(b, 'he'));
+        }
+
+        function refreshGroupOptions() {
+            const used = [...new Set(guestsData.map(g => (g.group || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'he'));
+            const f = document.getElementById('filterGroup');
+            const cur = f.value;
+            f.innerHTML = '<option value="">כל הקבוצות</option>' + used.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('')
+                + (guestsData.some(g => !(g.group || '').trim()) ? '<option value="__none">ללא קבוצה</option>' : '');
+            f.value = [...f.options].some(o => o.value === cur) ? cur : '';
+            document.getElementById('groupList').innerHTML = allGroups().map(g => `<option value="${escapeHtml(g)}">`).join('');
+        }
+
+        function tableName(id) {
+            const t = tablesData.find(x => x.id === id);
+            return t ? t.name : '';
+        }
+
+        // ===== Stats =====
+        function renderStats() {
+            const c = guestCounts(guestsData);
+            const card = (cls, icon, num, title) => `<div class="stat-card ${cls}"><div class="stat-icon">${icon}</div><div class="stat-number">${num}</div><div class="stat-title">${title}</div></div>`;
+            document.getElementById('statsGrid').innerHTML =
+                card('info', ICONS.guests, fmtNum(c.invited), `מוזמנים · ${fmtNum(c.invitations)} הזמנות`) +
+                card('success', ICONS.check, fmtNum(c.confirmed), 'אישרו הגעה') +
+                card('warning', ICONS.clock, fmtNum(c.pending + c.maybe), `ממתינים / אולי · ${fmtNum(c.declined)} לא מגיעים`) +
+                card('', ICONS.heart, fmtNum(c.expected), 'צפי הגעה סופי');
+        }
+
+        // ===== List =====
+        function filteredGuests() {
+            const q = document.getElementById('searchInput').value.trim().toLowerCase();
+            const side = document.getElementById('filterSide').value;
+            const group = document.getElementById('filterGroup').value;
+            const status = document.getElementById('filterStatus').value;
+            let list = guestsData.filter(g => {
+                if (side && (g.side || 'both') !== side) return false;
+                if (group === '__none' && (g.group || '').trim()) return false;
+                if (group && group !== '__none' && (g.group || '').trim() !== group) return false;
+                if (status && (g.status || 'pending') !== status) return false;
+                if (q) {
+                    const hay = [g.name, g.phone, g.notes, g.group].join(' ').toLowerCase();
+                    if (!hay.includes(q)) return false;
+                }
+                return true;
+            });
+            const sortBy = document.getElementById('sortBy').value;
+            const statusOrder = { yes: 0, maybe: 1, pending: 2, no: 3 };
+            const byName = (a, b) => (a.name || '').localeCompare(b.name || '', 'he');
+            if (sortBy === 'name') list.sort(byName);
+            else if (sortBy === 'group') list.sort((a, b) => (a.group || 'תתתת').localeCompare(b.group || 'תתתת', 'he') || byName(a, b));
+            else if (sortBy === 'invited') list.sort((a, b) => guestInvited(b) - guestInvited(a) || byName(a, b));
+            else if (sortBy === 'status') list.sort((a, b) => statusOrder[a.status || 'pending'] - statusOrder[b.status || 'pending'] || byName(a, b));
+            return list; // 'recent' keeps Firestore order (createdAt desc)
+        }
+
+        function rsvpControl(g) {
+            const cur = g.status || 'pending';
+            return `<div class="rsvp-group" role="group" aria-label="אישור הגעה">${RSVP_STATUSES.map(r => `
+                <button type="button" class="${cur === r.value ? 'on' : ''}" style="${cur === r.value ? `background:${r.color}` : ''}"
+                    onclick="setStatus('${g.id}', '${r.value}')" title="${r.label}">${r.short}</button>`).join('')}</div>`;
+        }
+
+        function render() {
+            renderStats();
+            const list = filteredGuests();
+            const container = document.getElementById('guestsContainer');
+            const c = guestCounts(list);
+            document.getElementById('resultNote').textContent = guestsData.length
+                ? `מוצגות ${fmtNum(list.length)} הזמנות · ${fmtNum(c.invited)} אנשים · ${fmtNum(c.confirmed)} אישרו`
+                : '';
+
+            if (guestsData.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">${ICONS.guests}</div>
+                        <h3>עוד אין מוזמנים</h3>
+                        <p>הוסיפו מוזמנים אחד-אחד, או ייבאו את כל הרשימה מקובץ אקסל</p>
+                    </div>`;
+                updateBulkBar();
+                return;
+            }
+            if (list.length === 0) {
+                container.innerHTML = `<div class="empty-state"><h3>אין תוצאות</h3><p>נסו לשנות את החיפוש או הסינון</p></div>`;
+                updateBulkBar();
+                return;
+            }
+
+            const allChecked = list.every(g => selected.has(g.id));
+            container.innerHTML = `
+                <div class="table-scroll">
+                <table class="data-table cards-mobile">
+                    <thead><tr>
+                        <th style="width:32px"><input type="checkbox" class="row-checkbox" ${allChecked ? 'checked' : ''} onchange="toggleAll(this.checked)" aria-label="בחר הכל"></th>
+                        <th>שם</th><th>צד</th><th>קבוצה</th><th>אנשים</th><th>אישור הגעה</th><th>שולחן</th><th></th>
+                    </tr></thead>
+                    <tbody>
+                        ${list.map(g => {
+                            const conf = guestConfirmed(g);
+                            const inv = guestInvited(g);
+                            const peopleText = g.status === 'yes' && conf !== inv ? `${fmtNum(conf)} מתוך ${fmtNum(inv)}` : fmtNum(inv);
+                            return `<tr>
+                                <td class="select-cell"><input type="checkbox" class="row-checkbox" ${selected.has(g.id) ? 'checked' : ''} onchange="toggleOne('${g.id}', this.checked)" aria-label="בחר"></td>
+                                <td class="card-head"><div><strong>${escapeHtml(g.name)}</strong>
+                                    ${g.phone ? `<div class="muted" dir="ltr" style="text-align:right">${escapeHtml(g.phone)}</div>` : ''}
+                                    ${g.notes ? `<div class="muted">${escapeHtml(g.notes)}</div>` : ''}</div></td>
+                                <td data-label="צד">${escapeHtml(sideLabel(g.side || 'both'))}</td>
+                                <td data-label="קבוצה">${escapeHtml(g.group || '—')}</td>
+                                <td data-label="אנשים" class="num-cell" title="${g.status === 'yes' ? 'אישרו / הוזמנו' : 'הוזמנו'}">${peopleText}</td>
+                                <td data-label="אישור הגעה">${rsvpControl(g)}</td>
+                                <td data-label="שולחן">${escapeHtml(tableName(g.tableId) || '—')}</td>
+                                <td class="actions">
+                                    <button class="btn-icon" onclick="openGuestModal('${g.id}')" title="עריכה">${ICONS.edit}</button>
+                                    <button class="btn-icon danger" onclick="deleteGuest('${g.id}')" title="מחיקה">${ICONS.trash}</button>
+                                </td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+                </div>`;
+            updateBulkBar();
+        }
+
+        // ===== Quick RSVP =====
+        async function setStatus(id, status) {
+            const g = guestsData.find(x => x.id === id);
+            if (!g || (g.status || 'pending') === status) return;
+            try {
+                // Switching to "yes" confirms everyone on the invitation; edit to change the number
+                await Guests.update(id, { status, confirmed: status === 'yes' ? guestInvited(g) : null });
+            } catch (err) { showAlert('שגיאה: ' + err.message); }
+        }
+
+        // ===== Selection / bulk actions =====
+        function toggleOne(id, on) { on ? selected.add(id) : selected.delete(id); updateBulkBar(); }
+        function toggleAll(on) {
+            filteredGuests().forEach(g => on ? selected.add(g.id) : selected.delete(g.id));
+            render();
+        }
+        function clearSelection() { selected.clear(); render(); }
+        function updateBulkBar() {
+            // Drop ids that no longer exist
+            [...selected].forEach(id => { if (!guestsData.some(g => g.id === id)) selected.delete(id); });
+            document.getElementById('bulkBar').classList.toggle('show', selected.size > 0);
+            document.getElementById('bulkCount').textContent = `נבחרו ${fmtNum(selected.size)}`;
+        }
+        async function bulkSetStatus(sel) {
+            const status = sel.value;
+            sel.value = '';
+            if (!status || !selected.size) return;
+            try {
+                const ids = [...selected];
+                if (status === 'yes') {
+                    // confirmed differs per guest - update individually in batches of one call each
+                    await Promise.all(ids.map(id => {
+                        const g = guestsData.find(x => x.id === id);
+                        return Guests.update(id, { status, confirmed: g ? guestInvited(g) : null });
+                    }));
+                } else {
+                    await Guests.updateMany(ids, { status, confirmed: null });
+                }
+                clearSelection();
+            } catch (err) { showAlert('שגיאה: ' + err.message); }
+        }
+        async function bulkSetSide(sel) {
+            const side = sel.value;
+            sel.value = '';
+            if (!side || !selected.size) return;
+            try { await Guests.updateMany([...selected], { side }); clearSelection(); }
+            catch (err) { showAlert('שגיאה: ' + err.message); }
+        }
+        async function bulkSetGroup() {
+            if (!selected.size) return;
+            const group = await promptText('שינוי קבוצה', `קבוצה חדשה עבור ${selected.size} מוזמנים:`);
+            if (group === null) return;
+            try { await Guests.updateMany([...selected], { group: group.trim() }); clearSelection(); }
+            catch (err) { showAlert('שגיאה: ' + err.message); }
+        }
+        async function bulkDelete() {
+            if (!selected.size) return;
+            const ok = await showConfirm(`למחוק ${selected.size} מוזמנים?\nפעולה זו אינה הפיכה.`, { title: 'מחיקת מוזמנים', confirmText: 'מחק', danger: true });
+            if (!ok) return;
+            try { await Guests.removeMany([...selected]); clearSelection(); }
+            catch (err) { showAlert('שגיאה במחיקה: ' + err.message); }
+        }
+
+        function promptText(title, label) {
+            return new Promise(resolve => {
+                const modal = document.createElement('div');
+                modal.className = 'modal-backdrop show dialog-backdrop';
+                modal.innerHTML = `<div class="modal dialog">
+                    <h3 class="dialog-title">${escapeHtml(title)}</h3>
+                    <p class="dialog-text" style="margin-bottom:10px">${escapeHtml(label)}</p>
+                    <input type="text" class="form-input" list="groupList" style="margin-bottom:18px">
+                    <div class="dialog-actions">
+                        <button class="btn btn-primary" data-ok>אישור</button>
+                        <button class="btn btn-outline" data-cancel>ביטול</button>
+                    </div></div>`;
+                document.body.appendChild(modal);
+                const input = modal.querySelector('input');
+                input.focus();
+                const done = (v) => { modal.remove(); resolve(v); };
+                modal.querySelector('[data-ok]').onclick = () => done(input.value);
+                modal.querySelector('[data-cancel]').onclick = () => done(null);
+                input.addEventListener('keydown', e => { if (e.key === 'Enter') done(input.value); });
+            });
+        }
+
+        // ===== Add / edit modal =====
+        function fillTableOptions(selectedId) {
+            const sorted = [...tablesData].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he', { numeric: true }));
+            document.getElementById('gTable').innerHTML = '<option value="">ללא שולחן</option>' +
+                sorted.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+            document.getElementById('gTable').value = selectedId || '';
+        }
+
+        function syncConfirmedField() {
+            document.getElementById('gConfirmedGroup').style.visibility =
+                document.getElementById('gStatus').value === 'yes' ? 'visible' : 'hidden';
+        }
+
+        function openGuestModal(id) {
+            const form = document.getElementById('guestForm');
+            form.reset();
+            document.getElementById('guestId').value = '';
+            document.getElementById('guestError').style.display = 'none';
+            document.getElementById('guestModalTitle').textContent = 'הוספת מוזמן';
+            document.getElementById('saveAddAnotherBtn').style.display = '';
+            document.getElementById('gStatus').value = 'pending';
+            document.getElementById('gInvited').value = 1;
+            fillTableOptions('');
+
+            const g = id && guestsData.find(x => x.id === id);
+            if (g) {
+                document.getElementById('guestId').value = g.id;
+                document.getElementById('gName').value = g.name || '';
+                document.getElementById('gSide').value = g.side || 'both';
+                document.getElementById('gGroup').value = g.group || '';
+                document.getElementById('gInvited').value = guestInvited(g);
+                document.getElementById('gPhone').value = g.phone || '';
+                document.getElementById('gStatus').value = g.status || 'pending';
+                document.getElementById('gConfirmed').value = g.status === 'yes' && g.confirmed !== null && g.confirmed !== undefined ? g.confirmed : '';
+                document.getElementById('gNotes').value = g.notes || '';
+                fillTableOptions(g.tableId);
+                document.getElementById('guestModalTitle').textContent = 'עריכת מוזמן';
+                document.getElementById('saveAddAnotherBtn').style.display = 'none';
+            }
+            syncConfirmedField();
+            openModal('guestModal');
+            setTimeout(() => document.getElementById('gName').focus(), 50);
+        }
+
+        async function saveGuest(e, addAnother = false) {
+            e.preventDefault();
+            const form = document.getElementById('guestForm');
+            if (!form.reportValidity()) return;
+            const errEl = document.getElementById('guestError');
+            errEl.style.display = 'none';
+            const id = document.getElementById('guestId').value;
+            const status = document.getElementById('gStatus').value;
+            const confirmedRaw = document.getElementById('gConfirmed').value;
+            const invited = Math.max(0, parseInt(document.getElementById('gInvited').value, 10) || 0);
+            const data = {
+                name: document.getElementById('gName').value.trim(),
+                side: document.getElementById('gSide').value,
+                group: document.getElementById('gGroup').value.trim(),
+                invited,
+                phone: document.getElementById('gPhone').value.trim(),
+                status,
+                confirmed: status === 'yes' && confirmedRaw !== '' ? Math.max(0, parseInt(confirmedRaw, 10) || 0) : (status === 'yes' ? invited : null),
+                tableId: document.getElementById('gTable').value || null,
+                notes: document.getElementById('gNotes').value.trim(),
+            };
+            try {
+                if (id) await Guests.update(id, data);
+                else await Guests.add(data);
+                if (addAnother) {
+                    // Keep side + group to speed up entering a whole group
+                    const keep = { side: data.side, group: data.group };
+                    openGuestModal();
+                    document.getElementById('gSide').value = keep.side;
+                    document.getElementById('gGroup').value = keep.group;
+                } else {
+                    closeModal('guestModal');
+                }
+            } catch (err) {
+                errEl.textContent = 'שגיאה בשמירה: ' + err.message;
+                errEl.style.display = 'block';
+            }
+        }
+
+        async function deleteGuest(id) {
+            const g = guestsData.find(x => x.id === id);
+            if (!g || !await confirmDelete(g.name)) return;
+            try { await Guests.remove(id); }
+            catch (err) { showAlert('שגיאה במחיקה: ' + err.message); }
+        }
+
+        // ===== Export =====
+        function exportGuests() {
+            const list = filteredGuests();
+            if (!list.length) { showAlert('אין מוזמנים לייצוא'); return; }
+            const rows = [['שם', 'טלפון', 'צד', 'קבוצה', 'מוזמנים', 'אישור הגעה', 'אישרו', 'שולחן', 'הערות']];
+            list.forEach(g => rows.push([
+                g.name || '', g.phone || '', sideLabel(g.side || 'both'), g.group || '',
+                guestInvited(g), getRsvp(g.status).label, g.status === 'yes' ? guestConfirmed(g) : '',
+                tableName(g.tableId), g.notes || '',
+            ]));
+            const c = guestCounts(list);
+            rows.push([]);
+            rows.push(['סה"כ', '', '', '', c.invited, '', c.confirmed]);
+            exportToExcel(`מוזמנים - ${coupleTitle()} - ${todayISO()}`, 'מוזמנים', rows);
+        }
+
+        // ===== Import =====
+        const IMPORT_FIELDS = [
+            { key: 'name', label: 'שם *', patterns: ['שם מלא', 'שם המוזמן', 'שם האורח', 'שם פרטי', 'שם', 'name', 'מוזמן', 'אורח'] },
+            { key: 'lastName', label: 'שם משפחה', patterns: ['שם משפחה', 'משפחה', 'last name', 'surname'] },
+            { key: 'invited', label: 'כמות אנשים', patterns: ['כמות מוזמנים', 'מספר מוזמנים', 'מספר אנשים', 'כמות אנשים', 'מס\' אנשים', 'נפשות', 'כמות', 'מוזמנים', 'אנשים', 'guests', 'count', 'qty'] },
+            { key: 'confirmed', label: 'כמה אישרו', patterns: ['כמות מאשרים', 'כמות מגיעים', 'מאשרים', 'אישרו', 'מגיעים', 'confirmed', 'attending'] },
+            { key: 'status', label: 'אישור הגעה', patterns: ['אישור הגעה', 'סטטוס', 'הגעה', 'מגיע', 'rsvp', 'status', 'אישור'] },
+            { key: 'side', label: 'צד', patterns: ['צד', 'side', 'חתן/כלה', 'כלה/חתן'] },
+            { key: 'group', label: 'קבוצה', patterns: ['קבוצה', 'קרבה', 'שיוך', 'קטגוריה', 'מעגל', 'group', 'relation', 'סוג'] },
+            { key: 'phone', label: 'טלפון', patterns: ['טלפון', 'נייד', 'פלאפון', 'סלולרי', 'phone', 'mobile', 'tel'] },
+            { key: 'table', label: 'שולחן', patterns: ['שולחן', 'table'] },
+            { key: 'notes', label: 'הערות', patterns: ['הערות', 'הערה', 'notes', 'comment'] },
+        ];
+        // Detection order matters: specific fields first so generic words ("שם", "מוזמנים") don't steal them
+        const DETECT_ORDER = ['lastName', 'confirmed', 'phone', 'notes', 'table', 'side', 'group', 'status', 'invited', 'name'];
+
+        let importSheets = [];
+        let importHeaders = [];
+        let importRows = [];
+        let importMapping = {};
+
+        async function onImportFile(e) {
+            const file = e.target.files[0];
+            e.target.value = '';
+            if (!file) return;
+            try {
+                importSheets = await readSpreadsheet(file);
+                if (!importSheets.length) { showAlert('הקובץ ריק'); return; }
+                const sel = document.getElementById('importSheet');
+                sel.innerHTML = importSheets.map((s, i) => `<option value="${i}">${escapeHtml(s.name)}</option>`).join('');
+                document.getElementById('importSheetGroup').style.display = importSheets.length > 1 ? '' : 'none';
+                document.getElementById('importDefaultGroup').value = '';
+                document.getElementById('importError').style.display = 'none';
+                selectImportSheet();
+                openModal('importModal');
+            } catch (err) {
+                console.error(err);
+                showAlert('שגיאה בקריאת הקובץ: ' + err.message);
+            }
+        }
+
+        function selectImportSheet() {
+            const sheet = importSheets[Number(document.getElementById('importSheet').value) || 0];
+            const rows = sheet.rows;
+            const hi = detectHeaderRow(rows, ['שם', 'name', 'טלפון', 'כמות']);
+            importHeaders = (rows[hi] || []).map(h => String(h).trim());
+            importRows = rows.slice(hi + 1).filter(r => r.some(c => String(c).trim() !== ''));
+            // Auto-detect
+            importMapping = {};
+            const taken = new Set();
+            const lc = importHeaders.map(h => h.toLowerCase());
+            DETECT_ORDER.forEach(key => {
+                const f = IMPORT_FIELDS.find(x => x.key === key);
+                for (const p of f.patterns) {
+                    const idx = lc.findIndex((h, i) => !taken.has(i) && h && h.includes(p.toLowerCase()));
+                    if (idx >= 0) { importMapping[key] = idx; taken.add(idx); return; }
+                }
+                importMapping[key] = -1;
+            });
+            if (importMapping.name < 0) {
+                // Fall back to the first mostly-text column
+                const idx = importHeaders.findIndex((h, i) => !taken.has(i) && importRows.slice(0, 20).some(r => String(r[i] || '').trim() && isNaN(parseNumber(r[i]))));
+                importMapping.name = idx;
+            }
+            const opts = '<option value="-1">— אין —</option>' + importHeaders.map((h, i) => `<option value="${i}">${escapeHtml(h || `עמודה ${i + 1}`)}</option>`).join('');
+            document.getElementById('importMap').innerHTML = IMPORT_FIELDS.map(f => `
+                <label for="map_${f.key}">${f.label}</label>
+                <select class="form-select" id="map_${f.key}" onchange="importMapping['${f.key}'] = Number(this.value); renderImportPreview()">${opts}</select>`).join('');
+            IMPORT_FIELDS.forEach(f => { document.getElementById('map_' + f.key).value = importMapping[f.key]; });
+            renderImportPreview();
+        }
+
+        function parseSide(v, fallback) {
+            const s = String(v || '').trim().toLowerCase();
+            if (!s) return fallback;
+            const gn = (weddingSettings.groomName || '').toLowerCase();
+            const bn = (weddingSettings.brideName || '').toLowerCase();
+            if (/משות|שניהם|both|שנינו/.test(s)) return 'both';
+            if (/חתן|groom/.test(s) || (gn && s.includes(gn))) return 'groom';
+            if (/כלה|bride/.test(s) || (bn && s.includes(bn))) return 'bride';
+            return fallback;
+        }
+
+        function parseStatus(v) {
+            const s = String(v || '').trim().toLowerCase();
+            if (!s) return null;
+            if (/טרם|ממתין|לא ענ|לא השיב|לא ידוע|pending|^\?$/.test(s)) return 'pending';
+            if (/אולי|maybe|לא בטוח/.test(s)) return 'maybe';
+            if (/^(לא|no|n|x|✗|✘|false|0)$/.test(s) || /לא מגיע|לא יגיע|declin/.test(s)) return 'no';
+            if (/^(כן|yes|y|v|✓|✔|true)$/.test(s) || /מגיע|אישר|אישור|confirm|attend/.test(s)) return 'yes';
+            const n = parseNumber(s);
+            if (!isNaN(n)) return n > 0 ? 'yes' : 'no';
+            return null;
+        }
+
+        function buildImportGuests() {
+            const m = importMapping;
+            const get = (r, k) => m[k] >= 0 ? String(r[m[k]] ?? '').trim() : '';
+            const defSide = document.getElementById('importDefaultSide').value;
+            const defGroup = document.getElementById('importDefaultGroup').value.trim();
+            const out = [];
+            for (const r of importRows) {
+                let name = get(r, 'name');
+                const last = get(r, 'lastName');
+                if (last && !name.includes(last)) name = (name + ' ' + last).trim();
+                if (!name) continue;
+                const confirmedNum = parseNumber(get(r, 'confirmed'));
+                let invited = parseNumber(get(r, 'invited'));
+                if (isNaN(invited)) invited = !isNaN(confirmedNum) && confirmedNum > 0 ? confirmedNum : 1;
+                let status = parseStatus(get(r, 'status'));
+                if (!status && !isNaN(confirmedNum)) status = confirmedNum > 0 ? 'yes' : null;
+                status = status || 'pending';
+                out.push({
+                    name,
+                    side: parseSide(get(r, 'side'), defSide),
+                    group: get(r, 'group') || defGroup,
+                    invited: Math.max(0, Math.round(invited)),
+                    phone: get(r, 'phone'),
+                    status,
+                    confirmed: status === 'yes' ? (!isNaN(confirmedNum) ? Math.round(confirmedNum) : Math.round(invited)) : null,
+                    tableName: get(r, 'table'),
+                    notes: get(r, 'notes'),
+                });
+            }
+            if (document.getElementById('importSkipDupes').checked) {
+                const key = g => (g.name || '').trim().toLowerCase() + '|' + (g.phone || '').replace(/\D/g, '');
+                const existing = new Set(guestsData.map(key));
+                const seen = new Set();
+                return out.filter(g => {
+                    const k = key(g);
+                    if (existing.has(k) || seen.has(k)) return false;
+                    seen.add(k);
+                    return true;
+                });
+            }
+            return out;
+        }
+
+        function renderImportPreview() {
+            const list = buildImportGuests();
+            const c = guestCounts(list);
+            const skipped = importRows.length - list.length;
+            document.getElementById('importSummary').innerHTML = importMapping.name < 0
+                ? `<div class="info-box" style="border-color:var(--danger);color:var(--danger)">בחרו איזו עמודה מכילה את שם המוזמן</div>`
+                : `<div class="info-box"><strong>${fmtNum(list.length)}</strong> הזמנות · <strong>${fmtNum(c.invited)}</strong> אנשים · <strong>${fmtNum(c.confirmed)}</strong> אישרו${skipped > 0 ? ` · ${fmtNum(skipped)} שורות ידולגו (ריקות או כפולות)` : ''}</div>`;
+            document.getElementById('importPreview').innerHTML = list.length ? `
+                <table class="data-table">
+                    <thead><tr><th>שם</th><th>צד</th><th>קבוצה</th><th>אנשים</th><th>סטטוס</th><th>אישרו</th><th>טלפון</th><th>שולחן</th></tr></thead>
+                    <tbody>${list.slice(0, 50).map(g => `<tr>
+                        <td>${escapeHtml(g.name)}</td><td>${escapeHtml(sideLabel(g.side))}</td><td>${escapeHtml(g.group || '—')}</td>
+                        <td>${g.invited}</td><td>${getRsvp(g.status).short}</td><td>${g.confirmed ?? '—'}</td>
+                        <td dir="ltr">${escapeHtml(g.phone)}</td><td>${escapeHtml(g.tableName || '')}</td></tr>`).join('')}
+                    ${list.length > 50 ? `<tr><td colspan="8" class="muted">ועוד ${fmtNum(list.length - 50)}...</td></tr>` : ''}
+                    </tbody></table>` : '';
+        }
+
+        async function doImport() {
+            const errEl = document.getElementById('importError');
+            errEl.style.display = 'none';
+            if (importMapping.name < 0) return;
+            const list = buildImportGuests();
+            if (!list.length) {
+                errEl.textContent = 'אין שורות לייבוא';
+                errEl.style.display = 'block';
+                return;
+            }
+            const btn = document.getElementById('doImportBtn');
+            btn.disabled = true;
+            try {
+                // Create any tables mentioned in the file that don't exist yet
+                const tableIds = {};
+                tablesData.forEach(t => { tableIds[String(t.name).trim()] = t.id; });
+                const newTableNames = [...new Set(list.map(g => g.tableName).filter(n => n && !tableIds[n]))];
+                for (const name of newTableNames) {
+                    const t = await Tables.add({ name, capacity: 12, notes: '' });
+                    tableIds[name] = t.id;
+                }
+                const docs = list.map(({ tableName, ...g }) => ({ ...g, tableId: tableName ? tableIds[tableName] : null }));
+                await Guests.addMany(docs, (done, total) => { btn.textContent = `מייבא... ${done}/${total}`; });
+                closeModal('importModal');
+                showAlert(`יובאו ${fmtNum(docs.length)} הזמנות (${fmtNum(guestCounts(docs).invited)} אנשים)` + (newTableNames.length ? `\nנוצרו ${newTableNames.length} שולחנות חדשים` : ''), { title: 'הייבוא הושלם', emoji: '🎉' });
+            } catch (err) {
+                console.error(err);
+                errEl.textContent = 'שגיאה בייבוא: ' + err.message;
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'ייבוא';
+            }
+        }
+
+        document.getElementById('guestsContainer').innerHTML = '<div class="empty-state"><h3>טוען...</h3></div>';
+        document.addEventListener('settings:change', () => { fillSideOptions(); render(); });
+        document.addEventListener('auth:ready', () => {
+            Guests.subscribe(items => { guestsData = items; refreshGroupOptions(); render(); });
+            Tables.subscribe(items => { tablesData = items; render(); });
+        });
+    </script>
+</body>
+</html>

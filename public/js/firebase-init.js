@@ -1,4 +1,4 @@
-// Firebase initialization for התוכנה של עמרי
+// Firebase initialization for מערכת החתונה
 // Loaded in every HTML page before app.js
 
 const firebaseConfig = {

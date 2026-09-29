@@ -1,0 +1,25 @@
+{
+    "name": "החתונה שלנו",
+    "short_name": "החתונה",
+    "description": "ניהול החתונה - מוזמנים ואישורי הגעה, תקציב וספקים, הושבה, קבצי אקסל ומשימות",
+    "start_url": "../index.html",
+    "scope": "../",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#faf7f6",
+    "theme_color": "#6b2f5a",
+    "lang": "he",
+    "dir": "rtl",
+    "categories": [
+        "lifestyle",
+        "productivity"
+    ],
+    "icons": [
+        {
+            "src": "../images/heart-icon.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ]
+}

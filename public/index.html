@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="theme-color" content="#6b2f5a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="החתונה שלנו">
+    <link rel="manifest" href="config/manifest.json">
+    <link rel="apple-touch-icon" href="images/heart-icon.png">
+    <link rel="icon" type="image/png" href="images/heart-icon.png">
+    <title>החתונה שלנו - דאשבורד</title>
+    <link rel="stylesheet" href="css/app.css?v=44">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-init.js"></script>
+    <style>
+        .mini-list { display: flex; flex-direction: column; }
+        .mini-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
+        .mini-item:last-child { border-bottom: none; }
+        .mini-item .muted { white-space: nowrap; }
+        .reply-progress { display: flex; align-items: center; gap: 12px; margin-top: 14px; font-size: 0.88rem; color: var(--gray-dark); }
+        .reply-progress .progress { flex: 1; }
+    </style>
+</head>
+<body>
+    <div class="splash" id="splash"><div class="splash-heart"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div></div>
+    <div id="appHeader"></div>
+
+    <main class="container" style="padding-top:24px">
+        <div class="hero" id="hero"></div>
+
+        <div class="stats-grid" id="guestStats"></div>
+
+        <div class="charts-grid">
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">אישורי הגעה</h3><a href="guests.html" class="btn btn-outline btn-sm">לרשימת המוזמנים</a></div>
+                <div class="chart-sub">כמות אנשים לפי סטטוס</div>
+                <div id="rsvpChart"></div>
+                <div class="reply-progress" id="replyProgress"></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">מוזמנים לפי צד</h3></div>
+                <div class="chart-sub">כמות אנשים שהוזמנו</div>
+                <div id="sideChart"></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">מוזמנים לפי קבוצה</h3></div>
+                <div class="chart-sub">כמות אנשים שהוזמנו · מעבר עם העכבר מציג פירוט</div>
+                <div id="groupChart"></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">תקציב</h3><a href="budget.html" class="btn btn-outline btn-sm">לתקציב</a></div>
+                <div class="chart-sub" id="budgetSub">מה שולם ומה נשאר לשלם</div>
+                <div id="budgetChart"></div>
+                <div style="margin-top:18px" id="budgetCatChart"></div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">משימות קרובות</h3><a href="tasks.html" class="btn btn-outline btn-sm">לכל המשימות</a></div>
+                <div id="openTasks"></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">תשלומים קרובים</h3><a href="budget.html" class="btn btn-outline btn-sm">לכל הספקים</a></div>
+                <div id="duePayments"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/app.js?v=75"></script>
+    <script>
+        let guestsData = [];
+        let expensesData = [];
+        let tasksData = [];
+
+        function renderHero() {
+            const s = weddingSettings;
+            const days = daysUntil(s.weddingDate);
+            let countHtml = '';
+            if (days !== null) {
+                if (days > 0) countHtml = `<div class="hero-count"><div class="hero-count-num">${fmtNum(days)}</div><div class="hero-count-label">ימים לחתונה</div></div>`;
+                else if (days === 0) countHtml = `<div class="hero-count"><div class="hero-count-num">🎉</div><div class="hero-count-label">היום החתונה!</div></div>`;
+                else countHtml = `<div class="hero-count"><div class="hero-count-num">💍</div><div class="hero-count-label">מזל טוב!</div></div>`;
+            }
+            const meta = [
+                s.weddingDate ? new Date(s.weddingDate + 'T00:00').toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '',
+                s.venue,
+            ].filter(Boolean).map(escapeHtml).join(' · ');
+            document.getElementById('hero').innerHTML = `
+                <div>
+                    <div class="hero-names">${escapeHtml(coupleTitle(s))}</div>
+                    <div class="hero-meta">${meta || 'עוד לא הוגדרו תאריך ומקום — <a href="settings.html">להגדרות החתונה</a>'}</div>
+                </div>
+                ${countHtml}`;
+        }
+
+        function statCard(cls, icon, num, title) {
+            return `<div class="stat-card ${cls}">
+                <div class="stat-icon">${icon}</div>
+                <div class="stat-number">${num}</div>
+                <div class="stat-title">${title}</div>
+            </div>`;
+        }
+
+        function renderGuests() {
+            const c = guestCounts(guestsData);
+            document.getElementById('guestStats').innerHTML =
+                statCard('info', ICONS.guests, fmtNum(c.invited), `מוזמנים (${fmtNum(c.invitations)} הזמנות)`) +
+                statCard('success', ICONS.check, fmtNum(c.confirmed), 'אישרו הגעה') +
+                statCard('warning', ICONS.clock, fmtNum(c.pending + c.maybe), 'טרם אישרו / אולי') +
+                statCard('', ICONS.heart, fmtNum(c.expected), `צפי הגעה (${weddingSettings.arrivalRate}% מהממתינים)`);
+
+            renderStackBar(document.getElementById('rsvpChart'), [
+                { label: 'אישרו', value: c.confirmed, color: getRsvp('yes').color },
+                { label: 'אולי', value: c.maybe, color: getRsvp('maybe').color },
+                { label: 'טרם השיבו', value: c.pending, color: getRsvp('pending').color },
+                { label: 'לא מגיעים', value: c.declined, color: getRsvp('no').color },
+            ], { emptyText: 'עוד אין מוזמנים — הוסיפו או ייבאו מאקסל' });
+
+            const pct = c.invitations ? Math.round(c.answered / c.invitations * 100) : 0;
+            document.getElementById('replyProgress').innerHTML = c.invitations
+                ? `<span>השיבו</span><div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div><span><strong>${fmtNum(c.answered)}</strong> מתוך ${fmtNum(c.invitations)} הזמנות</span>`
+                : '';
+
+            renderStackBar(document.getElementById('sideChart'), GUEST_SIDES.map((sd, i) => {
+                const list = guestsData.filter(g => (g.side || 'both') === sd.value);
+                return { label: sideLabel(sd.value), value: list.reduce((s, g) => s + guestInvited(g), 0), color: SERIES_COLORS[i] };
+            }), { emptyText: 'אין נתונים' });
+
+            const groups = {};
+            guestsData.forEach(g => {
+                const k = (g.group || '').trim() || 'ללא קבוצה';
+                groups[k] = groups[k] || { invited: 0, confirmed: 0 };
+                groups[k].invited += guestInvited(g);
+                groups[k].confirmed += guestConfirmed(g);
+            });
+            renderBarChart(document.getElementById('groupChart'),
+                Object.entries(groups).map(([label, v]) => ({ label, value: v.invited, sub: `${fmtNum(v.confirmed)} אישרו` })),
+                { emptyText: 'אין נתונים', maxItems: 9 });
+        }
+
+        function renderBudget() {
+            const expected = guestCounts(guestsData).expected;
+            let total = 0, paid = 0;
+            const byCat = {};
+            expensesData.forEach(e => {
+                const t = expenseTotal(e, expected);
+                total += t;
+                paid += Math.min(Number(e.paid) || 0, t || Infinity);
+                const cat = getExpenseCategory(e.category).label;
+                byCat[cat] = (byCat[cat] || 0) + t;
+            });
+            const budget = Number(weddingSettings.totalBudget) || 0;
+            document.getElementById('budgetSub').textContent = budget
+                ? `סה"כ מתוכנן ${fmtCurrency(total)} מתוך תקציב של ${fmtCurrency(budget)}`
+                : `סה"כ מתוכנן ${fmtCurrency(total)}`;
+            renderStackBar(document.getElementById('budgetChart'), [
+                { label: 'שולם', value: paid, color: SERIES_COLORS[2] },
+                { label: 'נשאר לשלם', value: Math.max(0, total - paid), color: '#cbb8c3' },
+            ], { format: fmtCurrency, emptyText: 'עוד לא הוזנו הוצאות' });
+            renderBarChart(document.getElementById('budgetCatChart'),
+                Object.entries(byCat).map(([label, value]) => ({ label, value })),
+                { format: fmtCurrency, emptyText: '', maxItems: 6 });
+        }
+
+        function renderTasks() {
+            const open = tasksData.filter(t => !t.done)
+                .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'))
+                .slice(0, 6);
+            const el = document.getElementById('openTasks');
+            if (!open.length) {
+                el.innerHTML = `<div class="chart-empty">אין משימות פתוחות 🎉</div>`;
+                return;
+            }
+            const today = todayISO();
+            el.innerHTML = `<div class="mini-list">${open.map(t => `
+                <div class="mini-item">
+                    <span>${escapeHtml(t.title)}${t.assignee ? ` <span class="muted">· ${escapeHtml(t.assignee)}</span>` : ''}</span>
+                    <span class="muted">${t.date ? fmtDate(t.date) + (t.date < today ? ' <span class="badge badge-danger">באיחור</span>' : '') : ''}</span>
+                </div>`).join('')}</div>`;
+        }
+
+        function renderDue() {
+            const expected = guestCounts(guestsData).expected;
+            const due = expensesData
+                .map(e => ({ ...e, remaining: expenseTotal(e, expected) - (Number(e.paid) || 0) }))
+                .filter(e => e.remaining > 0)
+                .sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'))
+                .slice(0, 6);
+            const el = document.getElementById('duePayments');
+            if (!due.length) {
+                el.innerHTML = `<div class="chart-empty">אין תשלומים פתוחים</div>`;
+                return;
+            }
+            el.innerHTML = `<div class="mini-list">${due.map(e => `
+                <div class="mini-item">
+                    <span>${escapeHtml(e.name)}${e.vendor ? ` <span class="muted">· ${escapeHtml(e.vendor)}</span>` : ''}</span>
+                    <span class="muted"><strong style="color:var(--dark)">${fmtCurrency(e.remaining)}</strong>${e.dueDate ? ' · ' + fmtDate(e.dueDate) : ''}</span>
+                </div>`).join('')}</div>`;
+        }
+
+        function renderAll() {
+            renderHero();
+            renderGuests();
+            renderBudget();
+            renderTasks();
+            renderDue();
+        }
+
+        renderHero();
+        document.addEventListener('settings:change', renderAll);
+        document.addEventListener('auth:ready', () => {
+            Guests.subscribe(items => { guestsData = items; renderAll(); });
+            Expenses.subscribe(items => { expensesData = items; renderAll(); });
+            Tasks.subscribe(items => { tasksData = items; renderAll(); });
+        });
+    </script>
+</body>
+</html>

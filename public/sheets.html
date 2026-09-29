@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="theme-color" content="#6b2f5a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="החתונה שלנו">
+    <link rel="manifest" href="config/manifest.json">
+    <link rel="apple-touch-icon" href="images/heart-icon.png">
+    <link rel="icon" type="image/png" href="images/heart-icon.png">
+    <title>החתונה שלנו - קבצי אקסל</title>
+    <link rel="stylesheet" href="css/app.css?v=44">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="js/firebase-init.js"></script>
+</head>
+<body>
+    <div class="splash" id="splash"><div class="splash-heart"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div></div>
+    <div id="appHeader"></div>
+
+    <div class="page-title-bar">
+        <div class="container">
+            <h2 id="pageTitle">קבצי אקסל</h2>
+            <div class="subtitle" id="pageSubtitle">העלו כל קובץ אקסל (הצעות מחיר, רשימות, השוואות ספקים...) וצפו בו מסודר, עם סיכומים וגרפים אוטומטיים.</div>
+        </div>
+    </div>
+
+    <main class="container">
+        <!-- LIST VIEW -->
+        <div id="listView">
+            <div class="toolbar">
+                <div class="muted">תומך ב-xlsx, xls ו-csv. כל הגיליונות בקובץ נשמרים.</div>
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" id="uploadBtn"></button>
+                <input type="file" id="fileInput" style="display:none" accept=".xlsx,.xls,.csv" onchange="onFileSelected(event)">
+            </div>
+            <div id="sheetsContainer"></div>
+        </div>
+
+        <!-- DETAIL VIEW -->
+        <div id="detailView" style="display:none">
+            <button class="back-link" onclick="showList()" id="backBtn"></button>
+            <div class="card">
+                <div class="card-header">
+                    <div id="detailMeta"></div>
+                    <div id="detailActions" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+                </div>
+                <div class="tabs" id="tabsBar"></div>
+                <div id="summaryPills" style="margin-bottom:6px"></div>
+            </div>
+
+            <div class="card" id="chartCard">
+                <div class="card-header"><h3 class="card-title">גרף</h3></div>
+                <div class="chart-controls" id="chartControls"></div>
+                <div id="sheetChart"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title" id="tableTitle">תוכן הגיליון</h3>
+                    <div class="search-box" id="tableSearchBox" style="max-width:280px">
+                        <input type="search" id="tableSearch" class="form-input" placeholder="חיפוש בטבלה" oninput="renderTable()">
+                    </div>
+                </div>
+                <div id="tableContainer"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Upload -->
+    <div class="modal-backdrop" id="uploadModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">שמירת קובץ</div>
+                <button class="modal-close" onclick="closeModal('uploadModal')" data-icon="close"></button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">שם <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="upName" class="form-input" required>
+            </div>
+            <div id="upSummary" class="info-box"></div>
+            <div id="upError" style="color:var(--danger);font-size:0.9rem;margin-top:10px;display:none"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="upSaveBtn" onclick="saveUpload()">שמירה</button>
+                <button type="button" class="btn btn-outline" onclick="closeModal('uploadModal')">ביטול</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js?v=75"></script>
+    <script>
+        document.getElementById('uploadBtn').innerHTML = ICONS.upload + '<span>העלאת קובץ אקסל</span>';
+        document.getElementById('backBtn').innerHTML = ICONS.arrowLeft + '<span>חזרה לכל הקבצים</span>';
+        document.getElementById('tableSearchBox').insertAdjacentHTML('afterbegin', ICONS.search);
+        document.querySelectorAll('[data-icon="close"]').forEach(b => b.innerHTML = ICONS.close);
+
+        const MAX_DOC_BYTES = 950 * 1024; // Firestore document limit is 1MiB
+        const DEFAULT_SUBTITLE = document.getElementById('pageSubtitle').textContent;
+
+        let sheetsData = [];
+        let current = null;      // the open sheet document
+        let tabIdx = 0;
+        let editMode = false;
+        let editHeaders = [];
+        let editRows = [];       // plain arrays while editing
+        let pendingUpload = null;
+
+        // ===== Data shape helpers =====
+        // Stored shape: { name, fileName, tabs: [{ name, headers: [...], rows: [{ values: [...] }] }] }
+        // (Firestore forbids arrays directly inside arrays, hence { values })
+        function getTabs(s) {
+            if (Array.isArray(s.tabs)) return s.tabs;
+            return [];
+        }
+        function tabRows(tab) { return (tab.rows || []).map(r => (r && r.values) || (Array.isArray(r) ? r : [])); }
+
+        // ===== Column analysis =====
+        const NON_SUM_HEADER = /(ת\.?ז|תעודת זהות|טלפון|נייד|פלאפון|מיקוד|שנה|year|phone|zip|^id$|מס['׳]? ?סידורי|^#$|^מס['׳]?$)/i;
+        const AMOUNT_HEADER = /(סכום|מחיר|עלות|תשלום|כמות|מספר|סה"כ|סה״כ|total|amount|price|cost|qty|count|₪|מוזמנים|אנשים|מקדמה|יתרה)/i;
+
+        function analyzeColumns(headers, rows) {
+            return headers.map((h, ci) => {
+                let num = 0, text = 0, sum = 0;
+                const distinct = new Map();
+                for (const r of rows) {
+                    const raw = r[ci];
+                    if (raw === '' || raw === null || raw === undefined) continue;
+                    const n = parseNumber(raw);
+                    if (!isNaN(n)) { num++; sum += n; } else { text++; }
+                    const k = String(raw).trim();
+                    distinct.set(k, (distinct.get(k) || 0) + 1);
+                }
+                const filled = num + text;
+                const isNumeric = filled > 0 && num / filled >= 0.6;
+                return {
+                    index: ci,
+                    header: h || `עמודה ${ci + 1}`,
+                    isNumeric,
+                    summable: isNumeric && !NON_SUM_HEADER.test(String(h || '')),
+                    looksAmount: AMOUNT_HEADER.test(String(h || '')),
+                    sum,
+                    count: num,
+                    distinct: distinct.size,
+                    filled,
+                };
+            });
+        }
+
+        // ===== List view =====
+        function renderList() {
+            const el = document.getElementById('sheetsContainer');
+            if (!sheetsData.length) {
+                el.innerHTML = `
+                    <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                        ${ICONS.upload}
+                        <div><strong>גררו קובץ אקסל לכאן</strong> או לחצו לבחירה</div>
+                        <div style="font-size:0.85rem;margin-top:4px">xlsx · xls · csv</div>
+                    </div>`;
+                wireDropZone();
+                return;
+            }
+            el.innerHTML = `<div class="sheet-cards">${sheetsData.map(s => {
+                const tabs = getTabs(s);
+                const rows = tabs.reduce((n, t) => n + (t.rows || []).length, 0);
+                return `<div class="card sheet-card" onclick="showDetail('${s.id}')">
+                    <div style="display:flex;gap:12px;align-items:flex-start">
+                        <div class="stat-icon" style="background:#e8f5e9;color:#1d6f42;flex-shrink:0">${ICONS.sheet}</div>
+                        <div style="flex:1;min-width:0">
+                            <h3 style="font-size:1.02rem;font-weight:700;word-break:break-word">${escapeHtml(s.name || 'ללא שם')}</h3>
+                            <div class="muted">${fmtNum(rows)} שורות${tabs.length > 1 ? ` · ${tabs.length} גיליונות` : ''} · ${fmtDate(s.createdAt)}</div>
+                        </div>
+                        <div style="color:var(--gray)">${ICONS.arrowLeft}</div>
+                    </div>
+                </div>`;
+            }).join('')}</div>`;
+        }
+
+        function wireDropZone() {
+            const z = document.getElementById('dropZone');
+            if (!z) return;
+            ['dragenter', 'dragover'].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.classList.add('dragover'); }));
+            ['dragleave', 'drop'].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.classList.remove('dragover'); }));
+            z.addEventListener('drop', e => { const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) handleFile(f); });
+        }
+
+        // ===== Upload =====
+        function onFileSelected(e) {
+            const f = e.target.files[0];
+            e.target.value = '';
+            if (f) handleFile(f);
+        }
+
+        async function handleFile(file) {
+            try {
+                const sheets = await readSpreadsheet(file);
+                if (!sheets.length) { showAlert('הקובץ ריק'); return; }
+                const tabs = sheets.map(sh => {
+                    const hi = detectHeaderRow(sh.rows);
+                    const headers = (sh.rows[hi] || []).map(h => String(h ?? '').trim());
+                    // Width = widest row, so columns without a header are not lost
+                    const width = Math.max(headers.length, ...sh.rows.slice(hi + 1).map(r => r.length));
+                    while (headers.length < width) headers.push('');
+                    const rows = sh.rows.slice(hi + 1)
+                        .filter(r => r.some(c => String(c ?? '').trim() !== ''))
+                        .map(r => ({ values: headers.map((_, i) => {
+                            const v = r[i];
+                            if (v instanceof Date) return todayISOFrom(v);
+                            return v === null || v === undefined ? '' : String(v);
+                        }) }));
+                    return { name: sh.name, headers, rows };
+                });
+                pendingUpload = { fileName: file.name, tabs };
+                document.getElementById('upName').value = file.name.replace(/\.[^/.]+$/, '');
+                document.getElementById('upSummary').innerHTML = tabs.map(t => `<div><strong>${escapeHtml(t.name)}</strong>: ${fmtNum(t.rows.length)} שורות · ${fmtNum(t.headers.length)} עמודות</div>`).join('');
+                document.getElementById('upError').style.display = 'none';
+                openModal('uploadModal');
+            } catch (err) {
+                console.error(err);
+                showAlert('שגיאה בקריאת הקובץ: ' + err.message);
+            }
+        }
+
+        function todayISOFrom(d) {
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function docTooBig(payload) {
+            return new Blob([JSON.stringify(payload)]).size > MAX_DOC_BYTES;
+        }
+
+        async function saveUpload() {
+            const errEl = document.getElementById('upError');
+            errEl.style.display = 'none';
+            const name = document.getElementById('upName').value.trim();
+            if (!name) { errEl.textContent = 'חובה להזין שם'; errEl.style.display = 'block'; return; }
+            const payload = { name, fileName: pendingUpload.fileName, tabs: pendingUpload.tabs };
+            if (docTooBig(payload)) {
+                errEl.textContent = 'הקובץ גדול מדי לשמירה (מעל ~950KB). נסו למחוק גיליונות או שורות מיותרים ולהעלות שוב.';
+                errEl.style.display = 'block';
+                return;
+            }
+            const btn = document.getElementById('upSaveBtn');
+            btn.disabled = true;
+            try {
+                const added = await Sheets.add(payload);
+                closeModal('uploadModal');
+                pendingUpload = null;
+                pendingOpenId = added.id;
+            } catch (err) {
+                errEl.textContent = 'שגיאה בשמירה: ' + err.message;
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        // Allow deep links: sheets.html?id=<docId>
+        let pendingOpenId = new URLSearchParams(location.search).get('id');
+
+        // ===== Detail view =====
+        function showDetail(id, keepTab = false) {
+            const s = sheetsData.find(x => x.id === id);
+            if (!s) return;
+            if (!current || current.id !== id) { editMode = false; if (!keepTab) tabIdx = 0; }
+            current = s;
+            const tabs = getTabs(s);
+            if (tabIdx >= tabs.length) tabIdx = 0;
+            document.getElementById('listView').style.display = 'none';
+            document.getElementById('detailView').style.display = 'block';
+            document.getElementById('pageTitle').textContent = s.name || 'קובץ';
+            document.getElementById('pageSubtitle').textContent = (s.fileName ? s.fileName + ' · ' : '') + 'הועלה ב-' + fmtDate(s.createdAt);
+
+            document.getElementById('tabsBar').innerHTML = tabs.length > 1
+                ? tabs.map((t, i) => `<button class="tab-btn ${i === tabIdx ? 'on' : ''}" onclick="selectTab(${i})">${escapeHtml(t.name || 'גיליון ' + (i + 1))}</button>`).join('')
+                : '';
+            renderDetailBody();
+        }
+
+        function selectTab(i) {
+            if (editMode) return;
+            tabIdx = i;
+            showDetail(current.id, true);
+        }
+
+        function currentTab() { return getTabs(current)[tabIdx] || { name: '', headers: [], rows: [] }; }
+
+        function renderDetailBody() {
+            const tab = currentTab();
+            const headers = editMode ? editHeaders : tab.headers;
+            const rows = editMode ? editRows : tabRows(tab);
+            const cols = analyzeColumns(headers, rows);
+
+            document.getElementById('detailMeta').innerHTML = `
+                <span class="stat-pill">שורות: <strong>${fmtNum(rows.length)}</strong></span>
+                <span class="stat-pill">עמודות: <strong>${fmtNum(headers.length)}</strong></span>
+                ${editMode ? '<span class="stat-pill" style="background:#fef3c7;color:#92400e">מצב עריכה</span>' : ''}`;
+
+            document.getElementById('detailActions').innerHTML = editMode ? `
+                <button class="btn btn-success btn-sm" onclick="saveEdit()" id="saveEditBtn">${ICONS.check}<span>שמירה</span></button>
+                <button class="btn btn-outline btn-sm" onclick="cancelEdit()">${ICONS.close}<span>ביטול</span></button>` : `
+                <button class="btn btn-primary btn-sm" onclick="enterEdit()">${ICONS.edit}<span>עריכה</span></button>
+                <button class="btn btn-outline btn-sm" onclick="renameSheet()">${ICONS.edit}<span>שינוי שם</span></button>
+                <button class="btn btn-outline btn-sm" onclick="downloadSheet()">${ICONS.download}<span>הורדה</span></button>
+                <button class="btn btn-outline btn-sm" onclick="deleteSheet()">${ICONS.trash}<span>מחיקה</span></button>`;
+
+            const summable = cols.filter(c => c.summable);
+            document.getElementById('summaryPills').innerHTML = summable.length
+                ? summable.slice(0, 8).map(c => `<span class="stat-pill" title="ממוצע: ${fmtNum(c.count ? c.sum / c.count : 0)}">סה"כ ${escapeHtml(c.header)}: <strong>${fmtNum(c.sum)}</strong></span>`).join('')
+                : '';
+
+            renderChart(headers, rows, cols);
+            renderTable();
+        }
+
+        // ===== Chart builder =====
+        function chartKey() { return `sheetChart:${current.id}:${tabIdx}`; }
+        function loadChartCfg() { try { return JSON.parse(localStorage.getItem(chartKey()) || 'null'); } catch (e) { return null; } }
+        function saveChartCfg(cfg) { try { localStorage.setItem(chartKey(), JSON.stringify(cfg)); } catch (e) {} }
+
+        function defaultChartCfg(cols, rowCount) {
+            const groupCands = cols.filter(c => !c.isNumeric && c.distinct >= 2);
+            // Prefer a column that repeats values (a category), not a unique name/id column
+            const scored = groupCands
+                .filter(c => c.distinct <= Math.max(30, rowCount * 0.6))
+                .sort((a, b) => a.distinct - b.distinct);
+            const group = (scored.find(c => c.distinct <= 30 && c.distinct < rowCount) || scored[0] || groupCands[0]);
+            const summable = cols.filter(c => c.summable);
+            const measure = summable.find(c => c.looksAmount) || summable[0];
+            return {
+                group: group ? group.index : -1,
+                measure: measure ? 'sum:' + measure.index : 'count',
+                sort: 'value',
+            };
+        }
+
+        function renderChart(headers, rows, cols) {
+            const card = document.getElementById('chartCard');
+            if (!rows.length || !headers.length) { card.style.display = 'none'; return; }
+            card.style.display = '';
+            let cfg = loadChartCfg() || defaultChartCfg(cols, rows.length);
+            if (cfg.group >= headers.length) cfg = defaultChartCfg(cols, rows.length);
+
+            const summable = cols.filter(c => c.isNumeric);
+            document.getElementById('chartControls').innerHTML = `
+                <label>קיבוץ לפי</label>
+                <select class="form-select" id="cGroup">
+                    <option value="-1">— כל שורה בנפרד —</option>
+                    ${cols.map(c => `<option value="${c.index}">${escapeHtml(c.header)}</option>`).join('')}
+                </select>
+                <label>מה להציג</label>
+                <select class="form-select" id="cMeasure">
+                    <option value="count">מספר שורות</option>
+                    ${summable.map(c => `<option value="sum:${c.index}">סכום ${escapeHtml(c.header)}</option><option value="avg:${c.index}">ממוצע ${escapeHtml(c.header)}</option>`).join('')}
+                </select>
+                <select class="form-select" id="cSort">
+                    <option value="value">מיון לפי ערך</option>
+                    <option value="order">לפי הסדר בקובץ</option>
+                </select>`;
+            const gSel = document.getElementById('cGroup'), mSel = document.getElementById('cMeasure'), sSel = document.getElementById('cSort');
+            gSel.value = cfg.group;
+            mSel.value = [...mSel.options].some(o => o.value === cfg.measure) ? cfg.measure : 'count';
+            sSel.value = cfg.sort || 'value';
+            const onChange = () => {
+                const next = { group: Number(gSel.value), measure: mSel.value, sort: sSel.value };
+                saveChartCfg(next);
+                drawChart(headers, rows, next);
+            };
+            [gSel, mSel, sSel].forEach(s => s.addEventListener('change', onChange));
+            drawChart(headers, rows, { group: Number(gSel.value), measure: mSel.value, sort: sSel.value });
+        }
+
+        function drawChart(headers, rows, cfg) {
+            const [kind, idxStr] = cfg.measure.split(':');
+            const mIdx = Number(idxStr);
+            const buckets = new Map();
+            rows.forEach((r, ri) => {
+                const key = cfg.group >= 0 ? (String(r[cfg.group] ?? '').trim() || '(ריק)') : (String(r[0] ?? '').trim() || `שורה ${ri + 1}`);
+                const b = buckets.get(key) || { sum: 0, n: 0, rows: 0 };
+                b.rows++;
+                if (kind !== 'count') {
+                    const v = parseNumber(r[mIdx]);
+                    if (!isNaN(v)) { b.sum += v; b.n++; }
+                }
+                buckets.set(key, b);
+            });
+            const items = [...buckets.entries()].map(([label, b]) => ({
+                label,
+                value: kind === 'count' ? b.rows : kind === 'avg' ? (b.n ? b.sum / b.n : 0) : b.sum,
+                sub: `${fmtNum(b.rows)} שורות`,
+            }));
+            renderBarChart(document.getElementById('sheetChart'), items, {
+                sort: cfg.sort !== 'order',
+                maxItems: 15,
+                emptyText: 'אין ערכים להצגה בעמודה שנבחרה',
+                total: kind === 'avg' ? 0 : null,
+            });
+        }
+
+        // ===== Table =====
+        function renderTable() {
+            const tab = currentTab();
+            const container = document.getElementById('tableContainer');
+            document.getElementById('tableSearchBox').style.display = editMode ? 'none' : '';
+            if (editMode) { renderEditTable(); return; }
+
+            const headers = tab.headers;
+            const all = tabRows(tab);
+            if (!headers.length) { container.innerHTML = '<div class="empty-state"><h3>הגיליון ריק</h3></div>'; return; }
+            const q = document.getElementById('tableSearch').value.trim().toLowerCase();
+            const rows = q ? all.filter(r => r.some(v => String(v).toLowerCase().includes(q))) : all;
+            const cols = analyzeColumns(headers, rows);
+            const hasTotals = cols.some(c => c.summable);
+            const label = (h, i) => escapeHtml(h || `עמודה ${i + 1}`);
+
+            container.innerHTML = `
+                ${q ? `<div class="result-note">נמצאו ${fmtNum(rows.length)} שורות</div>` : ''}
+                <div class="table-scroll">
+                <table class="data-table sheet-table cards-mobile">
+                    <thead><tr>${headers.map((h, i) => `<th>${label(h, i)}</th>`).join('')}</tr></thead>
+                    <tbody>
+                        ${rows.map(r => `<tr>${headers.map((h, i) => `<td data-label="${label(h, i)}" ${i === 0 ? 'class="card-head"' : ''}>${escapeHtml(r[i] ?? '')}</td>`).join('')}</tr>`).join('')}
+                        ${hasTotals ? `<tr class="totals-row">${cols.map((c, i) => i === 0
+                            ? `<td class="card-head">סה"כ</td>`
+                            : `<td data-label="${label(headers[i], i)}">${c.summable ? fmtNum(c.sum) : ''}</td>`).join('')}</tr>` : ''}
+                    </tbody>
+                </table>
+                </div>`;
+        }
+
+        // ===== Edit mode =====
+        function enterEdit() {
+            const tab = currentTab();
+            editHeaders = [...tab.headers];
+            editRows = tabRows(tab).map(r => editHeaders.map((_, i) => r[i] ?? ''));
+            editMode = true;
+            renderDetailBody();
+        }
+
+        function cancelEdit() {
+            editMode = false;
+            renderDetailBody();
+        }
+
+        function renderEditTable() {
+            const container = document.getElementById('tableContainer');
+            container.innerHTML = `
+                <div class="table-scroll">
+                <table class="data-table sheet-table">
+                    <thead><tr>
+                        ${editHeaders.map((h, ci) => `<th><div style="display:flex;gap:4px;align-items:center">
+                            <input type="text" value="${escapeHtml(h)}" oninput="editHeaders[${ci}] = this.value" placeholder="כותרת" style="font-weight:600">
+                            <button type="button" class="btn-icon danger" onclick="removeColumn(${ci})" title="מחיקת עמודה">${ICONS.close}</button></div></th>`).join('')}
+                        <th></th>
+                    </tr></thead>
+                    <tbody>
+                        ${editRows.map((r, ri) => `<tr>
+                            ${editHeaders.map((_, ci) => `<td><input type="text" value="${escapeHtml(r[ci] ?? '')}" oninput="editRows[${ri}][${ci}] = this.value"></td>`).join('')}
+                            <td><button type="button" class="btn-icon danger" onclick="removeRow(${ri})" title="מחיקת שורה">${ICONS.trash}</button></td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+                </div>
+                <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="addRow()">${ICONS.plus}<span>הוספת שורה</span></button>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="addColumn()">${ICONS.plus}<span>הוספת עמודה</span></button>
+                </div>`;
+        }
+
+        function addRow() { editRows.push(editHeaders.map(() => '')); renderEditTable(); }
+        function removeRow(ri) { editRows.splice(ri, 1); renderEditTable(); }
+        function addColumn() { editHeaders.push('עמודה חדשה'); editRows.forEach(r => r.push('')); renderEditTable(); }
+        function removeColumn(ci) { editHeaders.splice(ci, 1); editRows.forEach(r => r.splice(ci, 1)); renderEditTable(); }
+
+        async function saveEdit() {
+            const tabs = getTabs(current).map(t => ({ name: t.name, headers: t.headers, rows: t.rows }));
+            tabs[tabIdx] = {
+                name: tabs[tabIdx].name,
+                headers: editHeaders.map(h => String(h ?? '')),
+                rows: editRows
+                    .map(r => ({ values: editHeaders.map((_, i) => String(r[i] ?? '')) }))
+                    .filter(r => r.values.some(v => v.trim() !== '')),
+            };
+            if (docTooBig({ name: current.name, tabs })) { showAlert('הקובץ גדול מדי לשמירה'); return; }
+            const btn = document.getElementById('saveEditBtn');
+            if (btn) btn.disabled = true;
+            try {
+                await Sheets.update(current.id, { tabs });
+                editMode = false;
+                try { localStorage.removeItem(chartKey()); } catch (e) {}
+            } catch (err) {
+                showAlert('שגיאה בשמירה: ' + err.message);
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        async function renameSheet() {
+            const name = await new Promise(resolve => {
+                const modal = document.createElement('div');
+                modal.className = 'modal-backdrop show dialog-backdrop';
+                modal.innerHTML = `<div class="modal dialog">
+                    <h3 class="dialog-title">שינוי שם</h3>
+                    <input type="text" class="form-input" style="margin:10px 0 18px">
+                    <div class="dialog-actions"><button class="btn btn-primary" data-ok>שמירה</button><button class="btn btn-outline" data-cancel>ביטול</button></div></div>`;
+                document.body.appendChild(modal);
+                const input = modal.querySelector('input');
+                input.value = current.name || '';
+                input.focus();
+                const done = v => { modal.remove(); resolve(v); };
+                modal.querySelector('[data-ok]').onclick = () => done(input.value.trim());
+                modal.querySelector('[data-cancel]').onclick = () => done(null);
+                input.addEventListener('keydown', e => { if (e.key === 'Enter') done(input.value.trim()); });
+            });
+            if (!name) return;
+            try { await Sheets.update(current.id, { name }); }
+            catch (err) { showAlert('שגיאה: ' + err.message); }
+        }
+
+        function downloadSheet() {
+            const wb = XLSX.utils.book_new();
+            wb.Workbook = { Views: [{ RTL: true }] };
+            getTabs(current).forEach((t, i) => {
+                const data = [t.headers, ...tabRows(t).map(r => t.headers.map((_, ci) => {
+                    const raw = r[ci];
+                    const n = parseNumber(raw);
+                    return raw === '' || raw === undefined ? '' : (isNaN(n) ? String(raw) : n);
+                }))];
+                const ws = XLSX.utils.aoa_to_sheet(data);
+                const name = (String(t.name || 'Sheet' + (i + 1)).replace(/[\\\/\?\*\[\]:]/g, '').slice(0, 31)) || 'Sheet' + (i + 1);
+                XLSX.utils.book_append_sheet(wb, ws, name);
+            });
+            XLSX.writeFile(wb, String(current.name || 'file').replace(/[\\\/\?\*\[\]:]/g, '_') + '.xlsx');
+        }
+
+        async function deleteSheet() {
+            if (!await confirmDelete(current.name)) return;
+            try { await Sheets.remove(current.id); showList(); }
+            catch (err) { showAlert('שגיאה במחיקה: ' + err.message); }
+        }
+
+        function showList() {
+            current = null;
+            editMode = false;
+            document.getElementById('detailView').style.display = 'none';
+            document.getElementById('listView').style.display = 'block';
+            document.getElementById('pageTitle').textContent = 'קבצי אקסל';
+            document.getElementById('pageSubtitle').textContent = DEFAULT_SUBTITLE;
+            document.getElementById('tableSearch').value = '';
+            renderList();
+        }
+
+        document.getElementById('sheetsContainer').innerHTML = '<div class="empty-state"><h3>טוען...</h3></div>';
+        document.addEventListener('auth:ready', () => {
+            Sheets.subscribe(items => {
+                sheetsData = items;
+                if (pendingOpenId && items.some(s => s.id === pendingOpenId)) {
+                    const id = pendingOpenId;
+                    pendingOpenId = null;
+                    showDetail(id);
+                } else if (current) {
+                    if (items.some(s => s.id === current.id)) {
+                        // Don't wipe in-progress edits when a snapshot arrives
+                        if (!editMode) showDetail(current.id, true);
+                    } else showList();
+                } else {
+                    renderList();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

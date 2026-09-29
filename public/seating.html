@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="theme-color" content="#6b2f5a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="החתונה שלנו">
+    <link rel="manifest" href="config/manifest.json">
+    <link rel="apple-touch-icon" href="images/heart-icon.png">
+    <link rel="icon" type="image/png" href="images/heart-icon.png">
+    <title>החתונה שלנו - סידורי הושבה</title>
+    <link rel="stylesheet" href="css/app.css?v=44">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="js/firebase-init.js"></script>
+</head>
+<body>
+    <div class="splash" id="splash"><div class="splash-heart"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div></div>
+    <div id="appHeader"></div>
+
+    <div class="page-title-bar">
+        <div class="container">
+            <h2>סידורי הושבה</h2>
+            <div class="subtitle">צרו שולחנות והושיבו אורחים. לאורחים שאישרו נספר מספר המאשרים, ולשאר נספר מספר המוזמנים.</div>
+        </div>
+    </div>
+
+    <main class="container">
+        <div class="stats-grid" id="statsGrid"></div>
+
+        <div class="toolbar">
+            <div class="toolbar-actions">
+                <button class="btn btn-primary" onclick="openTableModal()" id="addTableBtn"></button>
+                <button class="btn btn-outline" onclick="openModal('bulkTablesModal')" id="bulkTablesBtn"></button>
+                <button class="btn btn-outline" onclick="exportSeating()" id="exportBtn"></button>
+            </div>
+            <label style="display:flex;gap:8px;align-items:center;font-size:0.9rem;cursor:pointer">
+                <input type="checkbox" id="hideDeclined" checked onchange="render()"> להסתיר מוזמנים שלא מגיעים
+            </label>
+        </div>
+
+        <div id="tablesContainer"></div>
+    </main>
+
+    <!-- Add / edit table -->
+    <div class="modal-backdrop" id="tableModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="tableModalTitle">הוספת שולחן</div>
+                <button class="modal-close" onclick="closeModal('tableModal')" data-icon="close"></button>
+            </div>
+            <form id="tableForm" onsubmit="saveTable(event)">
+                <input type="hidden" id="tableId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">שם / מספר שולחן <span style="color:var(--danger)">*</span></label>
+                        <input type="text" id="tName" class="form-input" placeholder="לדוגמה: 1 / אבירים / משפחה" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">מספר מקומות</label>
+                        <input type="number" id="tCapacity" class="form-input" min="1" step="1" value="12">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">הערות</label>
+                    <input type="text" id="tNotes" class="form-input">
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">שמירה</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('tableModal')">ביטול</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create many tables -->
+    <div class="modal-backdrop" id="bulkTablesModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">יצירת כמה שולחנות</div>
+                <button class="modal-close" onclick="closeModal('bulkTablesModal')" data-icon="close"></button>
+            </div>
+            <form onsubmit="createManyTables(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">כמה שולחנות</label>
+                        <input type="number" id="bulkCount" class="form-input" min="1" max="200" value="10" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">מספור מתחיל מ-</label>
+                        <input type="number" id="bulkStart" class="form-input" min="0" value="1" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">מקומות בכל שולחן</label>
+                    <input type="number" id="bulkCapacity" class="form-input" min="1" value="12" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">יצירה</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('bulkTablesModal')">ביטול</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Pick guests for a table -->
+    <div class="modal-backdrop" id="pickModal">
+        <div class="modal" style="max-width:600px">
+            <div class="modal-header">
+                <div class="modal-title" id="pickTitle">הושבת אורחים</div>
+                <button class="modal-close" onclick="closeModal('pickModal')" data-icon="close"></button>
+            </div>
+            <div class="filters-bar">
+                <div class="search-box" id="pickSearchBox">
+                    <input type="search" id="pickSearch" class="form-input" placeholder="חיפוש" oninput="renderPickList()">
+                </div>
+                <select id="pickGroup" class="form-select" onchange="renderPickList()"></select>
+            </div>
+            <div class="result-note" id="pickNote"></div>
+            <div class="pick-list" id="pickList"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="assignPicked()">הושבה</button>
+                <button type="button" class="btn btn-outline" onclick="closeModal('pickModal')">ביטול</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js?v=75"></script>
+    <script>
+        document.getElementById('addTableBtn').innerHTML = ICONS.plus + '<span>הוספת שולחן</span>';
+        document.getElementById('bulkTablesBtn').innerHTML = ICONS.table + '<span>יצירת כמה שולחנות</span>';
+        document.getElementById('exportBtn').innerHTML = ICONS.download + '<span>ייצוא לאקסל</span>';
+        document.getElementById('pickSearchBox').insertAdjacentHTML('afterbegin', ICONS.search);
+        document.querySelectorAll('[data-icon="close"]').forEach(b => b.innerHTML = ICONS.close);
+
+        let tablesData = [];
+        let guestsData = [];
+        let pickTableId = null;
+        const picked = new Set();
+
+        // Seats a guest takes: confirmed count if they said yes, otherwise the invited count
+        function seats(g) { return g.status === 'yes' ? guestConfirmed(g) : guestInvited(g); }
+
+        function sortedTables() {
+            return [...tablesData].sort((a, b) => String(a.name).localeCompare(String(b.name), 'he', { numeric: true }));
+        }
+
+        function relevantGuests() {
+            const hide = document.getElementById('hideDeclined').checked;
+            return guestsData.filter(g => !(hide && g.status === 'no'));
+        }
+
+        function render() {
+            const tableIds = new Set(tablesData.map(t => t.id));
+            const guests = relevantGuests();
+            const seated = guests.filter(g => g.tableId && tableIds.has(g.tableId));
+            const unseated = guests.filter(g => !(g.tableId && tableIds.has(g.tableId)));
+            const totalSeats = tablesData.reduce((s, t) => s + (Number(t.capacity) || 0), 0);
+            const seatedPeople = seated.reduce((s, g) => s + seats(g), 0);
+            const unseatedConfirmed = unseated.filter(g => g.status === 'yes').reduce((s, g) => s + seats(g), 0);
+
+            const card = (cls, icon, num, title) => `<div class="stat-card ${cls}"><div class="stat-icon">${icon}</div><div class="stat-number">${num}</div><div class="stat-title">${title}</div></div>`;
+            document.getElementById('statsGrid').innerHTML =
+                card('info', ICONS.table, fmtNum(tablesData.length), 'שולחנות') +
+                card('', ICONS.guests, fmtNum(totalSeats), 'מקומות ישיבה') +
+                card('success', ICONS.check, fmtNum(seatedPeople), 'אורחים הושבו') +
+                card(unseatedConfirmed ? 'warning' : 'success', ICONS.clock, fmtNum(unseatedConfirmed), 'אישרו ועוד לא הושבו');
+
+            const container = document.getElementById('tablesContainer');
+            if (!tablesData.length) {
+                container.innerHTML = `<div class="card"><div class="empty-state"><div class="empty-icon">${ICONS.table}</div><h3>עוד אין שולחנות</h3><p>הוסיפו שולחן אחד, או צרו כמה שולחנות בבת אחת</p></div></div>`;
+                return;
+            }
+            container.innerHTML = `<div class="tables-grid">${sortedTables().map(t => {
+                const list = guests.filter(g => g.tableId === t.id).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'));
+                const used = list.reduce((s, g) => s + seats(g), 0);
+                const cap = Number(t.capacity) || 0;
+                const over = cap && used > cap;
+                const pct = cap ? Math.min(100, Math.round(used / cap * 100)) : 0;
+                return `<div class="table-card ${over ? 'over' : ''}">
+                    <div class="table-head">
+                        <div>
+                            <div class="table-name">שולחן ${escapeHtml(t.name)}</div>
+                            <div class="table-seat-count">${fmtNum(used)} / ${fmtNum(cap)} מקומות${over ? ` · <span style="color:var(--danger);font-weight:600">חריגה של ${fmtNum(used - cap)}</span>` : ''}${t.notes ? ' · ' + escapeHtml(t.notes) : ''}</div>
+                        </div>
+                        <div style="display:flex">
+                            <button class="btn-icon" onclick="openTableModal('${t.id}')" title="עריכה">${ICONS.edit}</button>
+                            <button class="btn-icon danger" onclick="deleteTable('${t.id}')" title="מחיקה">${ICONS.trash}</button>
+                        </div>
+                    </div>
+                    <div class="progress"><div class="progress-fill ${over ? 'over' : ''}" style="width:${pct}%"></div></div>
+                    ${list.length ? `<ul class="table-guests">${list.map(g => `
+                        <li><span>${escapeHtml(g.name)} <span class="muted">(${fmtNum(seats(g))}${g.status !== 'yes' ? ' · ' + getRsvp(g.status).short : ''})</span></span>
+                            <button class="btn-icon danger" onclick="unseat('${g.id}')" title="הסרה מהשולחן">${ICONS.close}</button></li>`).join('')}</ul>`
+                        : '<div class="muted">אין עדיין אורחים בשולחן</div>'}
+                    <div class="table-actions">
+                        <button class="btn btn-outline btn-sm" onclick="openPicker('${t.id}')">${ICONS.plus}<span>הושבת אורחים</span></button>
+                    </div>
+                </div>`;
+            }).join('')}</div>`;
+        }
+
+        // ===== Tables CRUD =====
+        function openTableModal(id) {
+            document.getElementById('tableForm').reset();
+            document.getElementById('tableId').value = '';
+            document.getElementById('tableModalTitle').textContent = 'הוספת שולחן';
+            const t = id && tablesData.find(x => x.id === id);
+            if (t) {
+                document.getElementById('tableId').value = t.id;
+                document.getElementById('tName').value = t.name || '';
+                document.getElementById('tCapacity').value = t.capacity || 12;
+                document.getElementById('tNotes').value = t.notes || '';
+                document.getElementById('tableModalTitle').textContent = 'עריכת שולחן';
+            } else {
+                const nums = tablesData.map(x => parseInt(x.name, 10)).filter(n => !isNaN(n));
+                document.getElementById('tName').value = nums.length ? Math.max(...nums) + 1 : 1;
+            }
+            openModal('tableModal');
+        }
+
+        async function saveTable(e) {
+            e.preventDefault();
+            const id = document.getElementById('tableId').value;
+            const data = {
+                name: document.getElementById('tName').value.trim(),
+                capacity: Math.max(1, parseInt(document.getElementById('tCapacity').value, 10) || 12),
+                notes: document.getElementById('tNotes').value.trim(),
+            };
+            try {
+                if (id) await Tables.update(id, data);
+                else await Tables.add(data);
+                closeModal('tableModal');
+            } catch (err) { showAlert('שגיאה בשמירה: ' + err.message); }
+        }
+
+        async function createManyTables(e) {
+            e.preventDefault();
+            const count = Math.min(200, parseInt(document.getElementById('bulkCount').value, 10) || 0);
+            const start = parseInt(document.getElementById('bulkStart').value, 10) || 1;
+            const capacity = parseInt(document.getElementById('bulkCapacity').value, 10) || 12;
+            const existing = new Set(tablesData.map(t => String(t.name)));
+            const list = [];
+            for (let i = 0; i < count; i++) {
+                const name = String(start + i);
+                if (!existing.has(name)) list.push({ name, capacity, notes: '' });
+            }
+            try {
+                await Tables.addMany(list);
+                closeModal('bulkTablesModal');
+            } catch (err) { showAlert('שגיאה: ' + err.message); }
+        }
+
+        async function deleteTable(id) {
+            const t = tablesData.find(x => x.id === id);
+            if (!t) return;
+            const seatedIds = guestsData.filter(g => g.tableId === id).map(g => g.id);
+            const ok = await showConfirm(`למחוק את שולחן "${t.name}"?` + (seatedIds.length ? `\n${seatedIds.length} הזמנות יחזרו לרשימת הלא-מושבים.` : ''), { title: 'מחיקת שולחן', confirmText: 'מחק', danger: true });
+            if (!ok) return;
+            try {
+                if (seatedIds.length) await Guests.updateMany(seatedIds, { tableId: null });
+                await Tables.remove(id);
+            } catch (err) { showAlert('שגיאה במחיקה: ' + err.message); }
+        }
+
+        async function unseat(guestId) {
+            try { await Guests.update(guestId, { tableId: null }); }
+            catch (err) { showAlert('שגיאה: ' + err.message); }
+        }
+
+        // ===== Guest picker =====
+        function openPicker(tableId) {
+            pickTableId = tableId;
+            picked.clear();
+            const t = tablesData.find(x => x.id === tableId);
+            document.getElementById('pickTitle').textContent = `הושבה בשולחן ${t ? t.name : ''}`;
+            document.getElementById('pickSearch').value = '';
+            const groups = [...new Set(guestsData.map(g => (g.group || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'he'));
+            document.getElementById('pickGroup').innerHTML = '<option value="">כל הקבוצות</option>' + groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+            renderPickList();
+            openModal('pickModal');
+        }
+
+        function renderPickList() {
+            const tableIds = new Set(tablesData.map(t => t.id));
+            const q = document.getElementById('pickSearch').value.trim().toLowerCase();
+            const group = document.getElementById('pickGroup').value;
+            const statusOrder = { yes: 0, maybe: 1, pending: 2, no: 3 };
+            const list = relevantGuests()
+                .filter(g => !(g.tableId && tableIds.has(g.tableId)))
+                .filter(g => !group || (g.group || '').trim() === group)
+                .filter(g => !q || [g.name, g.group, g.notes].join(' ').toLowerCase().includes(q))
+                .sort((a, b) => statusOrder[a.status || 'pending'] - statusOrder[b.status || 'pending'] || (a.name || '').localeCompare(b.name || '', 'he'));
+
+            const t = tablesData.find(x => x.id === pickTableId);
+            const used = guestsData.filter(g => g.tableId === pickTableId).reduce((s, g) => s + seats(g), 0);
+            const adding = guestsData.filter(g => picked.has(g.id)).reduce((s, g) => s + seats(g), 0);
+            const cap = t ? Number(t.capacity) || 0 : 0;
+            document.getElementById('pickNote').innerHTML = `תפוסה אחרי ההושבה: <strong style="color:${used + adding > cap ? 'var(--danger)' : 'var(--dark)'}">${fmtNum(used + adding)} / ${fmtNum(cap)}</strong>`;
+
+            document.getElementById('pickList').innerHTML = list.length ? list.map(g => `
+                <label class="pick-item">
+                    <input type="checkbox" class="row-checkbox" ${picked.has(g.id) ? 'checked' : ''} onchange="togglePick('${g.id}', this.checked)">
+                    <span>${escapeHtml(g.name)}</span>
+                    <span class="muted">${fmtNum(seats(g))} · ${getRsvp(g.status).short}${g.group ? ' · ' + escapeHtml(g.group) : ''}</span>
+                </label>`).join('')
+                : '<div class="chart-empty">כל האורחים כבר הושבו 🎉</div>';
+        }
+
+        function togglePick(id, on) { on ? picked.add(id) : picked.delete(id); renderPickList(); }
+
+        async function assignPicked() {
+            if (!picked.size) { closeModal('pickModal'); return; }
+            try {
+                await Guests.updateMany([...picked], { tableId: pickTableId });
+                closeModal('pickModal');
+            } catch (err) { showAlert('שגיאה: ' + err.message); }
+        }
+
+        function exportSeating() {
+            const rows = [['שולחן', 'שם', 'מקומות', 'אישור הגעה', 'צד', 'קבוצה', 'טלפון']];
+            const tableIds = new Set(tablesData.map(t => t.id));
+            sortedTables().forEach(t => {
+                guestsData.filter(g => g.tableId === t.id).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he')).forEach(g => {
+                    rows.push([t.name, g.name, seats(g), getRsvp(g.status).label, sideLabel(g.side || 'both'), g.group || '', g.phone || '']);
+                });
+            });
+            guestsData.filter(g => g.status !== 'no' && !(g.tableId && tableIds.has(g.tableId))).forEach(g => {
+                rows.push(['ללא שולחן', g.name, seats(g), getRsvp(g.status).label, sideLabel(g.side || 'both'), g.group || '', g.phone || '']);
+            });
+            if (rows.length === 1) { showAlert('אין נתונים לייצוא'); return; }
+            exportToExcel(`סידורי הושבה - ${todayISO()}`, 'הושבה', rows);
+        }
+
+        document.getElementById('tablesContainer').innerHTML = '<div class="empty-state"><h3>טוען...</h3></div>';
+        document.addEventListener('auth:ready', () => {
+            Tables.subscribe(items => { tablesData = items; render(); });
+            Guests.subscribe(items => { guestsData = items; render(); if (document.getElementById('pickModal').classList.contains('show')) renderPickList(); });
+        });
+    </script>
+</body>
+</html>
