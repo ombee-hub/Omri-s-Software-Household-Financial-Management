@@ -5,13 +5,16 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// הגשת קבצי האתר מתיקיית public
-const PUBLIC_DIR = path.join(__dirname, '..', 'public');
-app.use(express.static(PUBLIC_DIR));
+// המסכים (*.html) והתיקיות שלהם נמצאים בתיקיית הפרויקט הראשית.
+// מגישים רק אותם - לא את config ולא קבצים אחרים שנמצאים בתיקייה (כמו אקסל).
+const ROOT_DIR = path.join(__dirname, '..');
+const SITE_DIRS = ['css', 'js', 'images', 'pwa'];
 
-// דף ברירת מחדל - דאשבורד
-app.get('/', (req, res) => {
-    res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+SITE_DIRS.forEach(dir => app.use('/' + dir, express.static(path.join(ROOT_DIR, dir))));
+app.get('/sw.js', (req, res) => res.sendFile(path.join(ROOT_DIR, 'sw.js')));
+app.get('/', (req, res) => res.sendFile(path.join(ROOT_DIR, 'index.html')));
+app.get(/^\/[\w-]+\.html$/, (req, res, next) => {
+    res.sendFile(path.join(ROOT_DIR, path.basename(req.path)), (err) => { if (err) next(); });
 });
 
 app.listen(PORT, () => {

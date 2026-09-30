@@ -1,9 +1,17 @@
 {
     "hosting": {
-        "public": "public",
+        "public": ".",
         "ignore": [
+            "firebase.json",
             "**/.*",
-            "*.md"
+            "**/.*/**",
+            "config/**",
+            "**/node_modules/**",
+            "*.md",
+            "**/*.xlsx",
+            "**/*.xls",
+            "**/*.csv",
+            "**/~$*"
         ],
         "cleanUrls": false,
         "trailingSlash": false,
@@ -18,7 +26,7 @@
                 ]
             },
             {
-                "source": "config/manifest.json",
+                "source": "pwa/manifest.json",
                 "headers": [
                     {
                         "key": "Cache-Control",

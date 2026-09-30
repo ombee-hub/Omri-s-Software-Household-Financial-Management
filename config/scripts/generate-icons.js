@@ -1,9 +1,9 @@
-// Renders the app icon (public/images/heart-icon.png) - a heart in a purple circle.
+// Renders the app icon (images/heart-icon.png) - a heart in a purple circle.
 // Run from the config folder with: npm run icons
 const sharp = require('sharp');
 const path = require('path');
 
-const OUT = path.join(__dirname, '..', '..', 'public', 'images', 'heart-icon.png');
+const OUT = path.join(__dirname, '..', '..', 'images', 'heart-icon.png');
 
 const SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
     <defs>
@@ -23,4 +23,4 @@ sharp(Buffer.from(SVG), { density: 144 })
     .resize(512, 512)
     .png()
     .toFile(OUT)
-    .then(() => console.log('wrote public/images/heart-icon.png (512x512)'));
+    .then(() => console.log('wrote images/heart-icon.png (512x512)'));
