@@ -501,6 +501,16 @@ function getExpenseCategory(value) { return EXPENSE_CATEGORIES.find(c => c.value
 //   status    - yes / maybe / pending / no
 //   confirmed - how many actually confirmed (only meaningful when status = yes)
 //   expected  - optional estimate of how many will come, before they answer
+// "דודו+ כרמית+יותם" -> "דודו וכרמית ויותם"; a trailing "+" (nothing after it) is dropped.
+// Applied on import and on save, so names from the same Excel always match.
+function normalizeGuestName(name) {
+    return String(name || '')
+        .replace(/\s*\+\s*$/, '')
+        .replace(/\s*\+\s*/g, ' ו')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
 function guestInvited(g) {
     const n = Number(g.invited);
     return isNaN(n) || n < 0 ? 1 : n;

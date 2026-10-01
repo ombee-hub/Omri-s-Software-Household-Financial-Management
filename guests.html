@@ -493,7 +493,7 @@
             const confirmedRaw = document.getElementById('gConfirmed').value;
             const invited = Math.max(0, parseInt(document.getElementById('gInvited').value, 10) || 0);
             const data = {
-                name: document.getElementById('gName').value.trim(),
+                name: normalizeGuestName(document.getElementById('gName').value),
                 side: sideValue(document.getElementById('gSide').value),
                 group: document.getElementById('gGroup').value.trim(),
                 invited,
@@ -692,6 +692,7 @@
                 let name = get(r, 'name');
                 const last = get(r, 'lastName');
                 if (last && !name.includes(last)) name = (name + ' ' + last).trim();
+                name = normalizeGuestName(name);
                 if (!name) continue;
                 if (/^(סה["״']?כ|סך הכל|total)/i.test(name)) continue; // summary row, not a guest
                 const expectedNum = parseNumber(get(r, 'expected'));
@@ -715,7 +716,7 @@
                 });
             }
             if (document.getElementById('importSkipDupes').checked) {
-                const key = g => (g.name || '').trim().toLowerCase() + '|' + (g.phone || '').replace(/\D/g, '');
+                const key = g => normalizeGuestName(g.name).toLowerCase() + '|' + (g.phone || '').replace(/\D/g, '');
                 const existing = new Set(guestsData.map(key));
                 const seen = new Set();
                 return out.filter(g => {
