@@ -853,6 +853,9 @@ main { padding-bottom: 60px; }
 .rsvp-group button.on { color: white; font-weight: 600; }
 
 .num-cell { font-variant-numeric: tabular-nums; font-weight: 600; }
+.btn-icon.wa-btn { color: #128c4a; }
+.btn-icon.wa-btn:hover { background: #e7f6ec; color: #0b6b37; }
+.rsvp-answered { font-size: 0.8rem; color: #0b6b37; margin-top: 2px; }
 .muted { color: var(--gray-dark); font-size: 0.85rem; }
 .row-checkbox { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
 .bulk-bar {

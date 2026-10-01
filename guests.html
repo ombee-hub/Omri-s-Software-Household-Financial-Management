@@ -12,7 +12,7 @@
     <link rel="apple-touch-icon" href="images/heart-icon.png">
     <link rel="icon" type="image/png" href="images/heart-icon.png">
     <title>החתונה שלנו - מוזמנים</title>
-    <link rel="stylesheet" href="css/app.css?v=49">
+    <link rel="stylesheet" href="css/app.css?v=50">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -180,7 +180,7 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=81"></script>
+    <script src="js/app.js?v=82"></script>
     <script>
         document.getElementById('addGuestBtn').innerHTML = ICONS.plus + '<span>הוספת מוזמן</span>';
         document.getElementById('importBtn').innerHTML = ICONS.upload + '<span>ייבוא מאקסל</span>';
@@ -324,13 +324,18 @@
                                 <td class="select-cell"><input type="checkbox" class="row-checkbox" ${selected.has(g.id) ? 'checked' : ''} onchange="toggleOne('${g.id}', this.checked)" aria-label="בחר"></td>
                                 <td class="card-head"><div><strong>${escapeHtml(g.name)}</strong>
                                     ${g.phone ? `<div class="muted" dir="ltr" style="text-align:right">${escapeHtml(g.phone)}</div>` : ''}
-                                    ${g.notes ? `<div class="muted">${escapeHtml(g.notes)}</div>` : ''}</div></td>
+                                    ${g.notes ? `<div class="muted">${escapeHtml(g.notes)}</div>` : ''}
+                                    ${g.rsvpAt ? `<div class="rsvp-answered" title="ענו דרך הקישור האישי">💬 ענו בקישור${g.rsvpNote ? ': ' + escapeHtml(g.rsvpNote) : ''}</div>` : ''}</div></td>
                                 <td data-label="צד">${escapeHtml(sideLabel(guestSide(g)))}</td>
                                 <td data-label="קבוצה">${escapeHtml(g.group || '—')}</td>
                                 <td data-label="אנשים" class="num-cell" title="${g.status === 'yes' ? 'אישרו / הוזמנו' : 'הוזמנו' + (est !== null ? ' · צפויים להגיע' : '')}">${peopleText}</td>
                                 <td data-label="אישור הגעה">${rsvpControl(g)}</td>
                                 <td data-label="שולחן">${escapeHtml(tableName(g.tableId) || '—')}</td>
                                 <td class="actions">
+                                    ${g.rsvpToken
+                                        ? `<a class="btn-icon wa-btn" href="${escapeHtml(Rsvp.waUrl(g))}" target="_blank" rel="noopener" title="שליחת אישור הגעה בוואטסאפ">${ICONS.whatsapp}</a>
+                                           <button class="btn-icon" onclick="copyRsvpLink('${g.id}')" title="העתקת הקישור האישי">${ICONS.link}</button>`
+                                        : `<span class="btn-icon" title="מכין קישור..." style="opacity:.35">${ICONS.whatsapp}</span>`}
                                     <button class="btn-icon" onclick="openGuestModal('${g.id}')" title="עריכה">${ICONS.edit}</button>
                                     <button class="btn-icon danger" onclick="deleteGuest('${g.id}')" title="מחיקה">${ICONS.trash}</button>
                                 </td>
@@ -401,7 +406,11 @@
             if (!selected.size) return;
             const ok = await showConfirm(`למחוק ${selected.size} מוזמנים?\nפעולה זו אינה הפיכה.`, { title: 'מחיקת מוזמנים', confirmText: 'מחק', danger: true });
             if (!ok) return;
-            try { await Guests.removeMany([...selected]); clearSelection(); }
+            try {
+                await Rsvp.removeFor(guestsData.filter(g => selected.has(g.id)));
+                await Guests.removeMany([...selected]);
+                clearSelection();
+            }
             catch (err) { showAlert('שגיאה במחיקה: ' + err.message); }
         }
 
@@ -496,11 +505,17 @@
                 notes: document.getElementById('gNotes').value.trim(),
             };
             try {
-                if (id) await Guests.update(id, data);
-                else await Guests.add(data);
+                if (id) {
+                    await Guests.update(id, data);
+                    // The guest's RSVP page shows their name and head count - keep it current
+                    const prev = guestsData.find(x => x.id === id);
+                    if (prev && prev.rsvpToken) await Rsvp.refresh({ ...prev, ...data });
+                } else {
+                    await Guests.add(data);
+                }
                 if (addAnother) {
                     // Keep side + group to speed up entering a whole group
-                    const keep = { side: data.side, group: data.group };
+                    const keep = { side: data.side || 'none', group: data.group };
                     openGuestModal();
                     document.getElementById('gSide').value = keep.side;
                     document.getElementById('gGroup').value = keep.group;
@@ -516,8 +531,33 @@
         async function deleteGuest(id) {
             const g = guestsData.find(x => x.id === id);
             if (!g || !await confirmDelete(g.name)) return;
-            try { await Guests.remove(id); }
+            try {
+                await Rsvp.removeFor([g]);
+                await Guests.remove(id);
+            }
             catch (err) { showAlert('שגיאה במחיקה: ' + err.message); }
+        }
+
+        async function copyRsvpLink(id) {
+            const g = guestsData.find(x => x.id === id);
+            if (!g || !g.rsvpToken) return;
+            const link = Rsvp.link(g.rsvpToken);
+            try {
+                await navigator.clipboard.writeText(link);
+                showAlert(`הקישור האישי של ${g.name} הועתק.\nאפשר להדביק אותו בכל הודעה.`, { title: 'הקישור הועתק', emoji: '🔗' });
+            } catch (e) {
+                showAlert(link, { title: 'הקישור האישי של ' + g.name, emoji: '🔗' });
+            }
+        }
+
+        // Every invitation gets its personal RSVP link automatically
+        let ensuringTokens = false;
+        async function ensureRsvpLinks() {
+            if (ensuringTokens || !guestsData.some(g => !g.rsvpToken)) return;
+            ensuringTokens = true;
+            try { await Rsvp.ensureTokens(guestsData); }
+            catch (e) { console.warn('creating RSVP links failed', e); }
+            finally { ensuringTokens = false; }
         }
 
         // ===== Export =====
@@ -744,7 +784,7 @@
         document.getElementById('guestsContainer').innerHTML = '<div class="empty-state"><h3>טוען...</h3></div>';
         document.addEventListener('settings:change', () => { fillSideOptions(); render(); });
         document.addEventListener('auth:ready', () => {
-            Guests.subscribe(items => { guestsData = items; refreshGroupOptions(); render(); });
+            Guests.subscribe(items => { guestsData = items; refreshGroupOptions(); render(); ensureRsvpLinks(); });
             Tables.subscribe(items => { tablesData = items; render(); });
         });
     </script>

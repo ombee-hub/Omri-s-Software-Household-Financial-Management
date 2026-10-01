@@ -24,5 +24,27 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if isMember();
     }
+
+    // ===== Public RSVP page (rsvp.html) - no login =====
+    // A guest knows only their own random token (from their personal link).
+    // They may read that one doc - never list the collection - and change only
+    // their answer, within limits. Everything else stays members-only above.
+    match /rsvp/{token} {
+      allow get: if true;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status', 'count', 'note', 'respondedAt'])
+        && request.resource.data.status in ['yes', 'maybe', 'no']
+        && request.resource.data.count is int
+        && request.resource.data.count >= 0
+        && request.resource.data.count <= resource.data.invited + 3
+        && request.resource.data.note is string
+        && request.resource.data.note.size() <= 500
+        && request.resource.data.respondedAt is int;
+    }
+
+    // Couple names / date / time / venue for the RSVP page (what an invitation shows)
+    match /publicEvent/{doc} {
+      allow get: if true;
+    }
   }
 }

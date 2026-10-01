@@ -57,6 +57,8 @@ const ICONS = {
     upload: _svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>'),
     download: _svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
     search: _svg('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
+    whatsapp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.75-.86-2.02-.96-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.79-1.47-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.08 1.75-.71 2-1.4.25-.69.25-1.28.17-1.4-.07-.13-.27-.2-.57-.35zM12.04 21.5h-.01a9.5 9.5 0 0 1-4.84-1.33l-.35-.2-3.6.94.96-3.5-.23-.36a9.46 9.46 0 0 1-1.45-5.05c0-5.24 4.27-9.5 9.52-9.5a9.46 9.46 0 0 1 9.51 9.51c0 5.24-4.27 9.5-9.51 9.5zm8.1-17.6A11.4 11.4 0 0 0 12.04.5C5.73.5.6 5.63.6 11.94c0 2.02.53 3.98 1.53 5.72L.5 23.5l5.98-1.57a11.4 11.4 0 0 0 5.46 1.39h.01c6.31 0 11.44-5.13 11.44-11.44 0-3.06-1.19-5.93-3.35-8.09z"/></svg>',
+    link: _svg('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
     phone: _svg('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>'),
 };
 
@@ -225,6 +227,8 @@ const SETTINGS_DEFAULTS = {
     pricePerGuest: 0,
     totalBudget: 0,
     arrivalRate: 80,
+    eventTime: '',
+    rsvpMessage: '',
 };
 const SETTINGS_CACHE_KEY = 'wedding_settings_cache';
 
@@ -253,6 +257,8 @@ const Settings = {
     },
     async save(data) {
         await this.ref().set({ ...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        // Keep the public RSVP page's event details in step with the settings
+        await Rsvp.syncPublicEvent({ ...weddingSettings, ...data });
     },
 };
 
@@ -379,6 +385,7 @@ function handleAuthState(user) {
     if (!isLoginPage) {
         mountHeader();
         if (user) ensureUserDoc(user);
+        if (user) Rsvp.startSync();
         if (!_settingsUnsub) {
             _settingsUnsub = Settings.subscribe((s) => {
                 weddingSettings = s;
@@ -752,6 +759,114 @@ function makeStore(collectionName) {
 }
 
 const Guests = makeStore('guests');
+
+// ===== RSVP: personal links that guests open to confirm attendance =====
+// Each invitation gets a random token. rsvp/{token} holds only what the guest
+// page needs (name, head count, their answer). Guests can read their own doc by
+// token and change only their answer (see config/firestore.rules); the members'
+// app copies new answers into the guest list (startSync).
+const DEFAULT_RSVP_MESSAGE = `היי {שם} 💍
+אנחנו מתחתנים ונשמח מאוד לחגוג איתכם!
+נשמח שתאשרו הגעה בקישור:
+{קישור}
+
+באהבה, {זוג}`;
+
+const Rsvp = {
+    col() { return db.collection('rsvp'); },
+    newToken() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        const bytes = crypto.getRandomValues(new Uint8Array(22));
+        return Array.from(bytes, b => chars[b % chars.length]).join('');
+    },
+    link(token) {
+        return new URL('rsvp.html?c=' + encodeURIComponent(token), location.href).href;
+    },
+    // Create links for guests that don't have one yet (one batch per 200 guests)
+    async ensureTokens(guests) {
+        const missing = guests.filter(g => !g.rsvpToken);
+        for (let i = 0; i < missing.length; i += 200) {
+            const batch = db.batch();
+            missing.slice(i, i + 200).forEach(g => {
+                const token = Rsvp.newToken();
+                batch.set(Rsvp.col().doc(token), { guestId: g.id, name: g.name || '', invited: guestInvited(g), createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                batch.update(db.collection('guests').doc(g.id), { rsvpToken: token });
+            });
+            await batch.commit();
+        }
+        if (missing.length) await Rsvp.syncPublicEvent(weddingSettings);
+    },
+    // Keep the guest-facing copy of name / head count current
+    async refresh(guest) {
+        if (!guest || !guest.rsvpToken) return;
+        await Rsvp.col().doc(guest.rsvpToken).set({ name: guest.name || '', invited: guestInvited(guest) }, { merge: true });
+    },
+    async removeFor(guests) {
+        const tokens = guests.map(g => g && g.rsvpToken).filter(Boolean);
+        for (let i = 0; i < tokens.length; i += 400) {
+            const batch = db.batch();
+            tokens.slice(i, i + 400).forEach(t => batch.delete(Rsvp.col().doc(t)));
+            await batch.commit();
+        }
+    },
+    // Event details shown on the public page (the same things an invitation shows)
+    async syncPublicEvent(s) {
+        await db.collection('publicEvent').doc('main').set({
+            coupleTitle: coupleTitle(s),
+            weddingDate: s.weddingDate || '',
+            eventTime: s.eventTime || '',
+            venue: s.venue || '',
+        });
+    },
+    message(guest, s = weddingSettings) {
+        const tpl = (s.rsvpMessage || '').trim() || DEFAULT_RSVP_MESSAGE;
+        const date = s.weddingDate ? fmtDate(s.weddingDate) : '';
+        return tpl
+            .split('{שם}').join(guest.name || '')
+            .split('{קישור}').join(guest.rsvpToken ? Rsvp.link(guest.rsvpToken) : '')
+            .split('{זוג}').join(coupleTitle(s))
+            .split('{תאריך}').join(date)
+            .split('{מקום}').join(s.venue || '');
+    },
+    // Israeli numbers: 05X-XXXXXXX -> 9725XXXXXXXX. No valid number -> WhatsApp asks whom to send to
+    waPhone(phone) {
+        let d = String(phone || '').replace(/\D/g, '');
+        if (d.startsWith('00')) d = d.slice(2);
+        if (d.startsWith('0')) d = '972' + d.slice(1);
+        return d.length >= 11 ? d : '';
+    },
+    waUrl(guest) {
+        const phone = Rsvp.waPhone(guest.phone);
+        return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(Rsvp.message(guest));
+    },
+    // Copy new answers from rsvp docs into the guest list (runs on every member page)
+    _syncing: false,
+    _applying: new Set(), // answers being copied right now - each one is copied once
+    startSync() {
+        if (Rsvp._syncing) return;
+        Rsvp._syncing = true;
+        Rsvp.col().onSnapshot((snap) => {
+            snap.forEach((doc) => {
+                const r = doc.data();
+                if (!r.respondedAt || r.appliedAt === r.respondedAt || !r.guestId) return;
+                const key = doc.id + ':' + r.respondedAt;
+                if (Rsvp._applying.has(key)) return;
+                Rsvp._applying.add(key);
+                Guests.update(r.guestId, {
+                    status: r.status,
+                    confirmed: r.status === 'yes' ? r.count : null,
+                    rsvpNote: r.note || '',
+                    rsvpAt: r.respondedAt,
+                })
+                    .then(() => doc.ref.update({ appliedAt: r.respondedAt }))
+                    .catch((e) => {
+                        console.warn('rsvp sync failed', doc.id, e);
+                        Rsvp._applying.delete(key); // allow a retry on the next snapshot
+                    });
+            });
+        }, (err) => console.warn('rsvp listener error', err));
+    },
+};
 const Expenses = makeStore('expenses');
 const Tables = makeStore('tables');
 const Sheets = makeStore('sheets');
