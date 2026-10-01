@@ -12,7 +12,7 @@
     <link rel="apple-touch-icon" href="images/heart-icon.png">
     <link rel="icon" type="image/png" href="images/heart-icon.png">
     <title>החתונה שלנו - מוזמנים</title>
-    <link rel="stylesheet" href="css/app.css?v=47">
+    <link rel="stylesheet" href="css/app.css?v=49">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -104,6 +104,13 @@
                         <input type="number" id="gInvited" class="form-input" min="0" step="1" value="1">
                     </div>
                     <div class="form-group">
+                        <label class="form-label">צפויים להגיע (הערכה)</label>
+                        <input type="number" id="gExpected" class="form-input" min="0" step="1">
+                        <div class="form-hint">ריק = לפי אחוז ההגעה הכללי בהגדרות</div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
                         <label class="form-label">טלפון</label>
                         <input type="tel" id="gPhone" class="form-input" dir="ltr" style="text-align:right">
                     </div>
@@ -173,7 +180,7 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=78"></script>
+    <script src="js/app.js?v=81"></script>
     <script>
         document.getElementById('addGuestBtn').innerHTML = ICONS.plus + '<span>הוספת מוזמן</span>';
         document.getElementById('importBtn').innerHTML = ICONS.upload + '<span>ייבוא מאקסל</span>';
@@ -184,6 +191,9 @@
         let guestsData = [];
         let tablesData = [];
         const selected = new Set();
+
+        // 'none' in the side pickers means "not specified" and is saved as an empty side
+        function sideValue(v) { return v === 'none' ? '' : v; }
 
         // ===== Select options =====
         function fillSideOptions() {
@@ -243,7 +253,7 @@
             const group = document.getElementById('filterGroup').value;
             const status = document.getElementById('filterStatus').value;
             let list = guestsData.filter(g => {
-                if (side && (g.side || 'both') !== side) return false;
+                if (side && guestSide(g) !== side) return false;
                 if (group === '__none' && (g.group || '').trim()) return false;
                 if (group && group !== '__none' && (g.group || '').trim() !== group) return false;
                 if (status && (g.status || 'pending') !== status) return false;
@@ -307,15 +317,17 @@
                         ${list.map(g => {
                             const conf = guestConfirmed(g);
                             const inv = guestInvited(g);
-                            const peopleText = g.status === 'yes' && conf !== inv ? `${fmtNum(conf)} מתוך ${fmtNum(inv)}` : fmtNum(inv);
+                            const est = guestExpected(g);
+                            const peopleText = g.status === 'yes' && conf !== inv ? `${fmtNum(conf)} מתוך ${fmtNum(inv)}`
+                                : (g.status !== 'yes' && g.status !== 'no' && est !== null ? `${fmtNum(inv)} <span class="muted">· צפי ${fmtNum(est)}</span>` : fmtNum(inv));
                             return `<tr>
                                 <td class="select-cell"><input type="checkbox" class="row-checkbox" ${selected.has(g.id) ? 'checked' : ''} onchange="toggleOne('${g.id}', this.checked)" aria-label="בחר"></td>
                                 <td class="card-head"><div><strong>${escapeHtml(g.name)}</strong>
                                     ${g.phone ? `<div class="muted" dir="ltr" style="text-align:right">${escapeHtml(g.phone)}</div>` : ''}
                                     ${g.notes ? `<div class="muted">${escapeHtml(g.notes)}</div>` : ''}</div></td>
-                                <td data-label="צד">${escapeHtml(sideLabel(g.side || 'both'))}</td>
+                                <td data-label="צד">${escapeHtml(sideLabel(guestSide(g)))}</td>
                                 <td data-label="קבוצה">${escapeHtml(g.group || '—')}</td>
-                                <td data-label="אנשים" class="num-cell" title="${g.status === 'yes' ? 'אישרו / הוזמנו' : 'הוזמנו'}">${peopleText}</td>
+                                <td data-label="אנשים" class="num-cell" title="${g.status === 'yes' ? 'אישרו / הוזמנו' : 'הוזמנו' + (est !== null ? ' · צפויים להגיע' : '')}">${peopleText}</td>
                                 <td data-label="אישור הגעה">${rsvpControl(g)}</td>
                                 <td data-label="שולחן">${escapeHtml(tableName(g.tableId) || '—')}</td>
                                 <td class="actions">
@@ -375,7 +387,7 @@
             const side = sel.value;
             sel.value = '';
             if (!side || !selected.size) return;
-            try { await Guests.updateMany([...selected], { side }); clearSelection(); }
+            try { await Guests.updateMany([...selected], { side: sideValue(side) }); clearSelection(); }
             catch (err) { showAlert('שגיאה: ' + err.message); }
         }
         async function bulkSetGroup() {
@@ -437,15 +449,17 @@
             document.getElementById('saveAddAnotherBtn').style.display = '';
             document.getElementById('gStatus').value = 'pending';
             document.getElementById('gInvited').value = 1;
+            document.getElementById('gExpected').value = '';
             fillTableOptions('');
 
             const g = id && guestsData.find(x => x.id === id);
             if (g) {
                 document.getElementById('guestId').value = g.id;
                 document.getElementById('gName').value = g.name || '';
-                document.getElementById('gSide').value = g.side || 'both';
+                document.getElementById('gSide').value = guestSide(g);
                 document.getElementById('gGroup').value = g.group || '';
                 document.getElementById('gInvited').value = guestInvited(g);
+                document.getElementById('gExpected').value = guestExpected(g) ?? '';
                 document.getElementById('gPhone').value = g.phone || '';
                 document.getElementById('gStatus').value = g.status || 'pending';
                 document.getElementById('gConfirmed').value = g.status === 'yes' && g.confirmed !== null && g.confirmed !== undefined ? g.confirmed : '';
@@ -471,9 +485,10 @@
             const invited = Math.max(0, parseInt(document.getElementById('gInvited').value, 10) || 0);
             const data = {
                 name: document.getElementById('gName').value.trim(),
-                side: document.getElementById('gSide').value,
+                side: sideValue(document.getElementById('gSide').value),
                 group: document.getElementById('gGroup').value.trim(),
                 invited,
+                expected: document.getElementById('gExpected').value === '' ? null : Math.max(0, parseInt(document.getElementById('gExpected').value, 10) || 0),
                 phone: document.getElementById('gPhone').value.trim(),
                 status,
                 confirmed: status === 'yes' && confirmedRaw !== '' ? Math.max(0, parseInt(confirmedRaw, 10) || 0) : (status === 'yes' ? invited : null),
@@ -509,10 +524,10 @@
         function exportGuests() {
             const list = filteredGuests();
             if (!list.length) { showAlert('אין מוזמנים לייצוא'); return; }
-            const rows = [['שם', 'טלפון', 'צד', 'קבוצה', 'מוזמנים', 'אישור הגעה', 'אישרו', 'שולחן', 'הערות']];
+            const rows = [['שם', 'טלפון', 'צד', 'קבוצה', 'מוזמנים', 'צפויים להגיע', 'אישור הגעה', 'אישרו', 'שולחן', 'הערות']];
             list.forEach(g => rows.push([
-                g.name || '', g.phone || '', sideLabel(g.side || 'both'), g.group || '',
-                guestInvited(g), getRsvp(g.status).label, g.status === 'yes' ? guestConfirmed(g) : '',
+                g.name || '', g.phone || '', sideLabel(guestSide(g)), g.group || '',
+                guestInvited(g), guestExpected(g) ?? '', getRsvp(g.status).label, g.status === 'yes' ? guestConfirmed(g) : '',
                 tableName(g.tableId), g.notes || '',
             ]));
             const c = guestCounts(list);
@@ -525,7 +540,8 @@
         const IMPORT_FIELDS = [
             { key: 'name', label: 'שם *', patterns: ['שם מלא', 'שם המוזמן', 'שם האורח', 'שם פרטי', 'שם', 'name', 'מוזמן', 'אורח'] },
             { key: 'lastName', label: 'שם משפחה', patterns: ['שם משפחה', 'משפחה', 'last name', 'surname'] },
-            { key: 'invited', label: 'כמות אנשים', patterns: ['כמות מוזמנים', 'מספר מוזמנים', 'מספר אנשים', 'כמות אנשים', 'מס\' אנשים', 'נפשות', 'כמות', 'מוזמנים', 'אנשים', 'guests', 'count', 'qty'] },
+            { key: 'invited', label: 'כמות אנשים', patterns: ['כמות מוזמנים', 'מספר מוזמנים', 'מספר אנשים', 'כמות אנשים', 'מס\' אנשים', 'נפשות', 'כמות', 'מוזמנים', 'אנשים', 'מספר', 'guests', 'count', 'qty'] },
+            { key: 'expected', label: 'צפויים להגיע', patterns: ['צפויים להגיע', 'צפויים', 'צפי הגעה', 'צפי', 'expected'] },
             { key: 'confirmed', label: 'כמה אישרו', patterns: ['כמות מאשרים', 'כמות מגיעים', 'מאשרים', 'אישרו', 'מגיעים', 'confirmed', 'attending'] },
             { key: 'status', label: 'אישור הגעה', patterns: ['אישור הגעה', 'סטטוס', 'הגעה', 'מגיע', 'rsvp', 'status', 'אישור'] },
             { key: 'side', label: 'צד', patterns: ['צד', 'side', 'חתן/כלה', 'כלה/חתן'] },
@@ -535,7 +551,7 @@
             { key: 'notes', label: 'הערות', patterns: ['הערות', 'הערה', 'notes', 'comment'] },
         ];
         // Detection order matters: specific fields first so generic words ("שם", "מוזמנים") don't steal them
-        const DETECT_ORDER = ['lastName', 'confirmed', 'phone', 'notes', 'table', 'side', 'group', 'status', 'invited', 'name'];
+        const DETECT_ORDER = ['lastName', 'expected', 'confirmed', 'phone', 'notes', 'table', 'side', 'group', 'status', 'invited', 'name'];
 
         let importSheets = [];
         let importHeaders = [];
@@ -552,7 +568,7 @@
                 const sel = document.getElementById('importSheet');
                 sel.innerHTML = importSheets.map((s, i) => `<option value="${i}">${escapeHtml(s.name)}</option>`).join('');
                 document.getElementById('importSheetGroup').style.display = importSheets.length > 1 ? '' : 'none';
-                document.getElementById('importDefaultGroup').value = '';
+                document.getElementById('importDefaultSide').value = 'none'; // never assume a side
                 document.getElementById('importError').style.display = 'none';
                 selectImportSheet();
                 openModal('importModal');
@@ -565,17 +581,26 @@
         function selectImportSheet() {
             const sheet = importSheets[Number(document.getElementById('importSheet').value) || 0];
             const rows = sheet.rows;
-            const hi = detectHeaderRow(rows, ['שם', 'name', 'טלפון', 'כמות']);
+            const hi = detectHeaderRow(rows, ['שם', 'name', 'טלפון', 'כמות', 'מוזמנים']);
+            // Whose list it is (the sheet name) is the natural default group
+            document.getElementById('importDefaultGroup').value = importSheets.length > 1 ? sheet.name : '';
             importHeaders = (rows[hi] || []).map(h => String(h).trim());
             importRows = rows.slice(hi + 1).filter(r => r.some(c => String(c).trim() !== ''));
             // Auto-detect
             importMapping = {};
             const taken = new Set();
             const lc = importHeaders.map(h => h.toLowerCase());
+            // Count fields may only map to columns that actually hold numbers
+            // (e.g. a names column titled "מוזמנים" must not become the head count)
+            const NUMERIC_KEYS = ['invited', 'expected', 'confirmed'];
+            const numericCol = (i) => {
+                const vals = importRows.slice(0, 30).map(r => String(r[i] ?? '').trim()).filter(Boolean);
+                return vals.length > 0 && vals.filter(v => !isNaN(parseNumber(v))).length >= vals.length * 0.6;
+            };
             DETECT_ORDER.forEach(key => {
                 const f = IMPORT_FIELDS.find(x => x.key === key);
                 for (const p of f.patterns) {
-                    const idx = lc.findIndex((h, i) => !taken.has(i) && h && h.includes(p.toLowerCase()));
+                    const idx = lc.findIndex((h, i) => !taken.has(i) && h && h.includes(p.toLowerCase()) && (!NUMERIC_KEYS.includes(key) || numericCol(i)));
                     if (idx >= 0) { importMapping[key] = idx; taken.add(idx); return; }
                 }
                 importMapping[key] = -1;
@@ -598,9 +623,10 @@
             if (!s) return fallback;
             const gn = (weddingSettings.groomName || '').toLowerCase();
             const bn = (weddingSettings.brideName || '').toLowerCase();
-            if (/משות|שניהם|both|שנינו/.test(s)) return 'both';
-            if (/חתן|groom/.test(s) || (gn && s.includes(gn))) return 'groom';
-            if (/כלה|bride/.test(s) || (bn && s.includes(bn))) return 'bride';
+            // Parents first: "הורי החתן" also contains "חתן"
+            const parents = /הור|parent/.test(s);
+            if (/חתן|groom/.test(s) || (gn && s.includes(gn))) return parents ? 'groomParents' : 'groom';
+            if (/כלה|bride/.test(s) || (bn && s.includes(bn))) return parents ? 'brideParents' : 'bride';
             return fallback;
         }
 
@@ -619,7 +645,7 @@
         function buildImportGuests() {
             const m = importMapping;
             const get = (r, k) => m[k] >= 0 ? String(r[m[k]] ?? '').trim() : '';
-            const defSide = document.getElementById('importDefaultSide').value;
+            const defSide = sideValue(document.getElementById('importDefaultSide').value);
             const defGroup = document.getElementById('importDefaultGroup').value.trim();
             const out = [];
             for (const r of importRows) {
@@ -627,6 +653,8 @@
                 const last = get(r, 'lastName');
                 if (last && !name.includes(last)) name = (name + ' ' + last).trim();
                 if (!name) continue;
+                if (/^(סה["״']?כ|סך הכל|total)/i.test(name)) continue; // summary row, not a guest
+                const expectedNum = parseNumber(get(r, 'expected'));
                 const confirmedNum = parseNumber(get(r, 'confirmed'));
                 let invited = parseNumber(get(r, 'invited'));
                 if (isNaN(invited)) invited = !isNaN(confirmedNum) && confirmedNum > 0 ? confirmedNum : 1;
@@ -638,6 +666,7 @@
                     side: parseSide(get(r, 'side'), defSide),
                     group: get(r, 'group') || defGroup,
                     invited: Math.max(0, Math.round(invited)),
+                    expected: isNaN(expectedNum) ? null : Math.max(0, Math.round(expectedNum)),
                     phone: get(r, 'phone'),
                     status,
                     confirmed: status === 'yes' ? (!isNaN(confirmedNum) ? Math.round(confirmedNum) : Math.round(invited)) : null,
@@ -668,12 +697,12 @@
                 : `<div class="info-box"><strong>${fmtNum(list.length)}</strong> הזמנות · <strong>${fmtNum(c.invited)}</strong> אנשים · <strong>${fmtNum(c.confirmed)}</strong> אישרו${skipped > 0 ? ` · ${fmtNum(skipped)} שורות ידולגו (ריקות או כפולות)` : ''}</div>`;
             document.getElementById('importPreview').innerHTML = list.length ? `
                 <table class="data-table">
-                    <thead><tr><th>שם</th><th>צד</th><th>קבוצה</th><th>אנשים</th><th>סטטוס</th><th>אישרו</th><th>טלפון</th><th>שולחן</th></tr></thead>
+                    <thead><tr><th>שם</th><th>צד</th><th>קבוצה</th><th>אנשים</th><th>צפויים</th><th>סטטוס</th><th>אישרו</th><th>טלפון</th><th>שולחן</th></tr></thead>
                     <tbody>${list.slice(0, 50).map(g => `<tr>
                         <td>${escapeHtml(g.name)}</td><td>${escapeHtml(sideLabel(g.side))}</td><td>${escapeHtml(g.group || '—')}</td>
-                        <td>${g.invited}</td><td>${getRsvp(g.status).short}</td><td>${g.confirmed ?? '—'}</td>
+                        <td>${g.invited}</td><td>${g.expected ?? '—'}</td><td>${getRsvp(g.status).short}</td><td>${g.confirmed ?? '—'}</td>
                         <td dir="ltr">${escapeHtml(g.phone)}</td><td>${escapeHtml(g.tableName || '')}</td></tr>`).join('')}
-                    ${list.length > 50 ? `<tr><td colspan="8" class="muted">ועוד ${fmtNum(list.length - 50)}...</td></tr>` : ''}
+                    ${list.length > 50 ? `<tr><td colspan="9" class="muted">ועוד ${fmtNum(list.length - 50)}...</td></tr>` : ''}
                     </tbody></table>` : '';
         }
 

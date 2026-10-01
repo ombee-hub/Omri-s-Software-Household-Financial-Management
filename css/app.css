@@ -797,6 +797,15 @@ main { padding-bottom: 60px; }
 .legend-value { font-weight: 700; color: var(--dark); font-variant-numeric: tabular-nums; }
 .legend-pct { color: var(--gray-dark); font-size: 0.8rem; min-width: 34px; text-align: left; }
 
+.pie-wrap { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.pie-chart { width: 180px; height: 180px; flex-shrink: 0; }
+.pie-slice { cursor: default; transition: opacity 0.15s; }
+.pie-chart:hover .pie-slice { opacity: 0.55; }
+.pie-chart:hover .pie-slice:hover { opacity: 1; }
+.pie-legend { flex: 1; min-width: 200px; grid-template-columns: 1fr; margin-top: 0; }
+.legend-sub { display: block; font-size: 0.75rem; color: var(--gray); }
+@media (max-width: 768px) { .pie-wrap { justify-content: center; } .pie-chart { width: 160px; height: 160px; } }
+
 .chart-tooltip {
     position: fixed;
     z-index: 5000;

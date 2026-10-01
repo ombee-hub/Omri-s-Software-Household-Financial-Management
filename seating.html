@@ -12,7 +12,7 @@
     <link rel="apple-touch-icon" href="images/heart-icon.png">
     <link rel="icon" type="image/png" href="images/heart-icon.png">
     <title>החתונה שלנו - סידורי הושבה</title>
-    <link rel="stylesheet" href="css/app.css?v=47">
+    <link rel="stylesheet" href="css/app.css?v=49">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -131,7 +131,7 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=78"></script>
+    <script src="js/app.js?v=81"></script>
     <script>
         document.getElementById('addTableBtn').innerHTML = ICONS.plus + '<span>הוספת שולחן</span>';
         document.getElementById('bulkTablesBtn').innerHTML = ICONS.table + '<span>יצירת כמה שולחנות</span>';
@@ -328,11 +328,11 @@
             const tableIds = new Set(tablesData.map(t => t.id));
             sortedTables().forEach(t => {
                 guestsData.filter(g => g.tableId === t.id).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he')).forEach(g => {
-                    rows.push([t.name, g.name, seats(g), getRsvp(g.status).label, sideLabel(g.side || 'both'), g.group || '', g.phone || '']);
+                    rows.push([t.name, g.name, seats(g), getRsvp(g.status).label, sideLabel(guestSide(g)), g.group || '', g.phone || '']);
                 });
             });
             guestsData.filter(g => g.status !== 'no' && !(g.tableId && tableIds.has(g.tableId))).forEach(g => {
-                rows.push(['ללא שולחן', g.name, seats(g), getRsvp(g.status).label, sideLabel(g.side || 'both'), g.group || '', g.phone || '']);
+                rows.push(['ללא שולחן', g.name, seats(g), getRsvp(g.status).label, sideLabel(guestSide(g)), g.group || '', g.phone || '']);
             });
             if (rows.length === 1) { showAlert('אין נתונים לייצוא'); return; }
             exportToExcel(`סידורי הושבה - ${todayISO()}`, 'הושבה', rows);

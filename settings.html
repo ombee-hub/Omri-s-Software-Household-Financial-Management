@@ -12,7 +12,7 @@
     <link rel="apple-touch-icon" href="images/heart-icon.png">
     <link rel="icon" type="image/png" href="images/heart-icon.png">
     <title>החתונה שלנו - הגדרות</title>
-    <link rel="stylesheet" href="css/app.css?v=47">
+    <link rel="stylesheet" href="css/app.css?v=49">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -70,7 +70,7 @@
                 <label class="form-label">כמה אחוז מהממתינים צפויים להגיע</label>
                 <input type="number" id="sRate" class="form-input" min="0" max="100" step="5" style="max-width:160px">
                 <div class="form-hint">
-                    צפי ההגעה = מי שאישר + האחוז הזה מתוך מי שעוד לא ענה או ענה "אולי".
+                    צפי ההגעה = מי שאישר + מי שעוד לא ענה או ענה "אולי": לפי ההערכה "צפויים להגיע" שלו אם יש, ואחרת לפי האחוז הזה.
                     בדרך כלל 70%-85%. אפשר להוריד ככל שמתקרבים לאירוע וכבר רוב האנשים ענו.
                 </div>
             </div>
@@ -82,7 +82,7 @@
         </form>
     </main>
 
-    <script src="js/app.js?v=78"></script>
+    <script src="js/app.js?v=81"></script>
     <script>
         let dirty = false;
 

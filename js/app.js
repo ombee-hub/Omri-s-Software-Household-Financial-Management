@@ -437,16 +437,26 @@ const Profiles = {
 setTimeout(() => hideSplash(), 3000);
 
 // ===== Wedding domain constants =====
+// 'none' = side not specified (stored as an empty side)
 const GUEST_SIDES = [
     { value: 'groom', label: 'צד החתן' },
     { value: 'bride', label: 'צד הכלה' },
-    { value: 'both', label: 'משותף' },
+    { value: 'groomParents', label: 'צד הורי החתן' },
+    { value: 'brideParents', label: 'צד הורי הכלה' },
+    { value: 'none', label: 'לא צוין' },
 ];
+const SIDE_VALUES = ['groom', 'bride', 'groomParents', 'brideParents'];
+
+function guestSide(g) {
+    return SIDE_VALUES.includes(g && g.side) ? g.side : 'none';
+}
 
 function sideLabel(value, s = weddingSettings) {
     if (value === 'groom') return s.groomName ? `צד ${s.groomName}` : 'צד החתן';
     if (value === 'bride') return s.brideName ? `צד ${s.brideName}` : 'צד הכלה';
-    return 'משותף';
+    if (value === 'groomParents') return s.groomName ? `צד הורי ${s.groomName}` : 'צד הורי החתן';
+    if (value === 'brideParents') return s.brideName ? `צד הורי ${s.brideName}` : 'צד הורי הכלה';
+    return 'לא צוין';
 }
 
 // RSVP status uses the reserved status palette - always shown with a text label
@@ -483,6 +493,7 @@ function getExpenseCategory(value) { return EXPENSE_CATEGORIES.find(c => c.value
 //   invited   - how many people the invitation is for
 //   status    - yes / maybe / pending / no
 //   confirmed - how many actually confirmed (only meaningful when status = yes)
+//   expected  - optional estimate of how many will come, before they answer
 function guestInvited(g) {
     const n = Number(g.invited);
     return isNaN(n) || n < 0 ? 1 : n;
@@ -493,18 +504,28 @@ function guestConfirmed(g) {
     return g.confirmed === '' || g.confirmed === null || g.confirmed === undefined || isNaN(n) ? guestInvited(g) : n;
 }
 
+function guestExpected(g) {
+    if (g.expected === '' || g.expected === null || g.expected === undefined) return null;
+    const n = Number(g.expected);
+    return isNaN(n) || n < 0 ? null : n;
+}
+
 function guestCounts(guests, arrivalRate = weddingSettings.arrivalRate) {
     const c = { invitations: guests.length, invited: 0, confirmed: 0, maybe: 0, pending: 0, declined: 0 };
+    const rate = Math.min(100, Math.max(0, Number(arrivalRate) || 0)) / 100;
+    let open = 0; // expected arrivals among guests who haven't confirmed yet
     for (const g of guests) {
         const inv = guestInvited(g);
         c.invited += inv;
-        if (g.status === 'yes') c.confirmed += guestConfirmed(g);
-        else if (g.status === 'maybe') c.maybe += inv;
-        else if (g.status === 'no') c.declined += inv;
+        if (g.status === 'yes') { c.confirmed += guestConfirmed(g); continue; }
+        if (g.status === 'no') { c.declined += inv; continue; }
+        if (g.status === 'maybe') c.maybe += inv;
         else c.pending += inv;
+        // Use the guest's own estimate when there is one, otherwise the general arrival rate
+        const est = guestExpected(g);
+        open += est !== null ? est : inv * rate;
     }
-    const rate = Math.min(100, Math.max(0, Number(arrivalRate) || 0)) / 100;
-    c.expected = c.confirmed + Math.round((c.pending + c.maybe) * rate);
+    c.expected = c.confirmed + Math.round(open);
     c.answered = guests.filter(g => g.status === 'yes' || g.status === 'no').length;
     return c;
 }
@@ -552,6 +573,48 @@ function renderBarChart(el, items, opts = {}) {
 }
 
 // Part-to-whole stacked bar with a legend. segments: [{ label, value, color }]
+// Pie chart (SVG) with a legend. segments: [{ label, value, color, sub? }]
+function renderPieChart(el, segments, opts = {}) {
+    if (!el) return;
+    const { format = fmtNum, emptyText = 'אין נתונים להצגה' } = opts;
+    const segs = segments.filter(s => s.value > 0);
+    const total = segs.reduce((s, x) => s + x.value, 0);
+    if (!total) {
+        el.innerHTML = `<div class="chart-empty">${escapeHtml(emptyText)}</div>`;
+        return;
+    }
+    const R = 90, C = 100;
+    const point = (a) => [C + R * Math.sin(a), C - R * Math.cos(a)]; // 0 = top, clockwise
+    let angle = 0;
+    const tip = (s) => escapeHtml(`${s.label}: ${format(s.value)} (${fmtPct(s.value, total)})${s.sub ? ' · ' + s.sub : ''}`);
+    const slices = segs.map(s => {
+        const sweep = s.value / total * Math.PI * 2;
+        let shape;
+        if (segs.length === 1) {
+            shape = `<circle cx="${C}" cy="${C}" r="${R}" fill="${s.color}"></circle>`;
+        } else {
+            const [x1, y1] = point(angle);
+            const [x2, y2] = point(angle + sweep);
+            const large = sweep > Math.PI ? 1 : 0;
+            shape = `<path d="M${C},${C} L${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${large} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${s.color}"></path>`;
+        }
+        angle += sweep;
+        // White stroke = the 2px gap between slices
+        return `<g class="pie-slice" data-tip="${tip(s)}" stroke="#fff" stroke-width="2" stroke-linejoin="round">${shape}</g>`;
+    }).join('');
+    el.innerHTML = `
+        <div class="pie-wrap">
+            <svg class="pie-chart" viewBox="0 0 200 200" role="img" aria-label="${escapeHtml(segs.map(s => `${s.label} ${format(s.value)}`).join(', '))}">${slices}</svg>
+            <div class="chart-legend pie-legend">${segments.map(s => `
+                <div class="legend-item" ${s.value > 0 ? `data-tip="${tip(s)}"` : ''}>
+                    <span class="legend-swatch" style="background:${s.color}"></span>
+                    <span class="legend-label">${escapeHtml(s.label)}${s.sub ? `<span class="legend-sub">${escapeHtml(s.sub)}</span>` : ''}</span>
+                    <span class="legend-value">${escapeHtml(format(s.value))}</span>
+                    <span class="legend-pct">${fmtPct(s.value, total)}</span>
+                </div>`).join('')}</div>
+        </div>`;
+}
+
 function renderStackBar(el, segments, opts = {}) {
     if (!el) return;
     const { format = fmtNum, emptyText = 'אין נתונים להצגה', showLegend = true } = opts;

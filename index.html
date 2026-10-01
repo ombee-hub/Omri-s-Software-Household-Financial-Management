@@ -12,7 +12,7 @@
     <link rel="apple-touch-icon" href="images/heart-icon.png">
     <link rel="icon" type="image/png" href="images/heart-icon.png">
     <title>החתונה שלנו - דאשבורד</title>
-    <link rel="stylesheet" href="css/app.css?v=47">
+    <link rel="stylesheet" href="css/app.css?v=49">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -44,13 +44,13 @@
                 <div class="reply-progress" id="replyProgress"></div>
             </div>
             <div class="card">
-                <div class="card-header"><h3 class="card-title">מוזמנים לפי צד</h3></div>
-                <div class="chart-sub">כמות אנשים שהוזמנו</div>
+                <div class="card-header"><h3 class="card-title">מגיעים לפי צד</h3></div>
+                <div class="chart-sub">כמה אנשים צפויים להגיע מכל צד (מי שאישר + ההערכות)</div>
                 <div id="sideChart"></div>
             </div>
             <div class="card">
                 <div class="card-header"><h3 class="card-title">מוזמנים לפי קבוצה</h3></div>
-                <div class="chart-sub">כמות אנשים שהוזמנו · מעבר עם העכבר מציג פירוט</div>
+                <div class="chart-sub">כמות אנשים שהוזמנו מכל קבוצה</div>
                 <div id="groupChart"></div>
             </div>
             <div class="card">
@@ -73,7 +73,7 @@
         </div>
     </main>
 
-    <script src="js/app.js?v=78"></script>
+    <script src="js/app.js?v=81"></script>
     <script>
         let guestsData = [];
         let expensesData = [];
@@ -114,9 +114,9 @@
                 statCard('info', ICONS.guests, fmtNum(c.invited), `מוזמנים (${fmtNum(c.invitations)} הזמנות)`) +
                 statCard('success', ICONS.check, fmtNum(c.confirmed), 'אישרו הגעה') +
                 statCard('warning', ICONS.clock, fmtNum(c.pending + c.maybe), 'טרם אישרו / אולי') +
-                statCard('', ICONS.heart, fmtNum(c.expected), `צפי הגעה (${weddingSettings.arrivalRate}% מהממתינים)`);
+                statCard('', ICONS.heart, fmtNum(c.expected), 'צפי הגעה');
 
-            renderStackBar(document.getElementById('rsvpChart'), [
+            renderPieChart(document.getElementById('rsvpChart'), [
                 { label: 'אישרו', value: c.confirmed, color: getRsvp('yes').color },
                 { label: 'אולי', value: c.maybe, color: getRsvp('maybe').color },
                 { label: 'טרם השיבו', value: c.pending, color: getRsvp('pending').color },
@@ -128,21 +128,41 @@
                 ? `<span>השיבו</span><div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div><span><strong>${fmtNum(c.answered)}</strong> מתוך ${fmtNum(c.invitations)} הזמנות</span>`
                 : '';
 
-            renderStackBar(document.getElementById('sideChart'), GUEST_SIDES.map((sd, i) => {
-                const list = guestsData.filter(g => (g.side || 'both') === sd.value);
-                return { label: sideLabel(sd.value), value: list.reduce((s, g) => s + guestInvited(g), 0), color: SERIES_COLORS[i] };
-            }), { emptyText: 'אין נתונים' });
+            // Pie: expected arrivals per side (confirmed + estimates), with the confirmed count underneath
+            renderPieChart(document.getElementById('sideChart'), GUEST_SIDES.map((sd, i) => {
+                const sc = guestCounts(guestsData.filter(g => guestSide(g) === sd.value));
+                return {
+                    label: sideLabel(sd.value),
+                    value: sc.expected,
+                    sub: `${fmtNum(sc.confirmed)} אישרו · ${fmtNum(sc.invited)} הוזמנו`,
+                    color: sd.value === 'none' ? OTHER_COLOR : SERIES_COLORS[i],
+                };
+            }).filter(s => s.value > 0 || s.label !== sideLabel('none')), { emptyText: 'עוד אין מוזמנים' });
 
-            const groups = {};
+            // Pie: invited people per group. Biggest groups get their own slice (max 7),
+            // the rest fold into one gray "other" slice so colors stay distinguishable.
+            const byGroup = {};
             guestsData.forEach(g => {
                 const k = (g.group || '').trim() || 'ללא קבוצה';
-                groups[k] = groups[k] || { invited: 0, confirmed: 0 };
-                groups[k].invited += guestInvited(g);
-                groups[k].confirmed += guestConfirmed(g);
+                (byGroup[k] = byGroup[k] || []).push(g);
             });
-            renderBarChart(document.getElementById('groupChart'),
-                Object.entries(groups).map(([label, v]) => ({ label, value: v.invited, sub: `${fmtNum(v.confirmed)} אישרו` })),
-                { emptyText: 'אין נתונים', maxItems: 9 });
+            const groupRows = Object.entries(byGroup)
+                .map(([label, list]) => ({ label, c: guestCounts(list) }))
+                .sort((a, b) => b.c.invited - a.c.invited);
+            const MAX_GROUP_SLICES = 7;
+            const shown = groupRows.length > MAX_GROUP_SLICES + 1 ? groupRows.slice(0, MAX_GROUP_SLICES) : groupRows;
+            const rest = groupRows.slice(shown.length);
+            const groupSlices = shown.map((r, i) => ({
+                label: r.label,
+                value: r.c.invited,
+                sub: `${fmtNum(r.c.expected)} צפויים להגיע · ${fmtNum(r.c.confirmed)} אישרו`,
+                color: SERIES_COLORS[i],
+            }));
+            if (rest.length) {
+                const rc = guestCounts(rest.flatMap(r => byGroup[r.label]));
+                groupSlices.push({ label: `אחר (${rest.length} קבוצות)`, value: rc.invited, sub: `${fmtNum(rc.expected)} צפויים להגיע · ${fmtNum(rc.confirmed)} אישרו`, color: OTHER_COLOR });
+            }
+            renderPieChart(document.getElementById('groupChart'), groupSlices, { emptyText: 'עוד אין מוזמנים' });
         }
 
         function renderBudget() {
