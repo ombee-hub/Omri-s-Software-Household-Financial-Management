@@ -230,6 +230,44 @@ const SETTINGS_DEFAULTS = {
     arrivalRate: 80,
     eventTime: '',
     rsvpMessage: '',
+    notifyEnabled: false,
+    notifyTopic: '',
+    notifyNames: true,
+    waRecipients: [], // WhatsApp notifications via CallMeBot: [{ name, phone, apikey }]
+};
+
+// ===== WhatsApp notifications through CallMeBot (https://www.callmebot.com) =====
+// Each recipient activates the bot once and gets a personal apikey; the bot can
+// only message that recipient's own number. No server of our own, so the request
+// goes straight from the browser (no-cors: we can't read the reply, only send).
+const WaNotify = {
+    phone(p) { const d = Rsvp.waPhone(p); return d ? '+' + d : ''; },
+    url(r, text) {
+        return 'https://api.callmebot.com/whatsapp.php?phone=' + encodeURIComponent(WaNotify.phone(r.phone)) +
+            '&text=' + encodeURIComponent(text) + '&apikey=' + encodeURIComponent(r.apikey);
+    },
+    send(recipients, text) {
+        (recipients || []).filter(r => r && r.apikey && WaNotify.phone(r.phone)).forEach(r => {
+            fetch(WaNotify.url(r, text), { mode: 'no-cors', keepalive: true }).catch(() => {});
+        });
+    },
+};
+
+// ===== Phone notifications through the free ntfy app (https://ntfy.sh) =====
+// No server of our own: whoever knows the secret topic name can receive the
+// notifications, so the topic is long and random.
+const Notify = {
+    newTopic() {
+        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        return 'wedding-' + Array.from(crypto.getRandomValues(new Uint8Array(24)), b => chars[b % chars.length]).join('');
+    },
+    async send(topic, { title, message, tags = [], click = '' }) {
+        const r = await fetch('https://ntfy.sh/', {
+            method: 'POST',
+            body: JSON.stringify({ topic, title, message, tags, priority: 4, click }),
+        });
+        if (!r.ok) throw new Error('ntfy ' + r.status);
+    },
 };
 const SETTINGS_CACHE_KEY = 'wedding_settings_cache';
 
@@ -982,6 +1020,13 @@ const Rsvp = {
             weddingDate: s.weddingDate || '',
             eventTime: s.eventTime || '',
             venue: s.venue || '',
+            // Phone notifications (ntfy): the RSVP page posts each answer to this topic
+            notifyTopic: s.notifyEnabled && s.notifyTopic ? s.notifyTopic : '',
+            notifyNames: s.notifyNames !== false,
+            // WhatsApp (CallMeBot): only what the request needs - number + personal code
+            waNotify: (s.waRecipients || [])
+                .filter(r => r && r.apikey && WaNotify.phone(r.phone))
+                .map(r => ({ phone: WaNotify.phone(r.phone), apikey: r.apikey })),
         });
     },
     message(guest, s = weddingSettings) {

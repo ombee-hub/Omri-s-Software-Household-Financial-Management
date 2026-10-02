@@ -96,9 +96,51 @@
                 <button type="submit" class="btn btn-primary" id="sSaveBtn">שמירה</button>
             </div>
         </form>
+
+        <div class="card" id="waCard">
+            <h3 class="card-title" style="margin-bottom:12px">💬 התראות בוואטסאפ על אישורי הגעה</h3>
+            <p class="muted" style="margin-bottom:12px">כשמוזמן עונה בדף אישור ההגעה, נשלחת הודעת וואטסאפ לכל מי שברשימה, למשל: "🎉 אישור הגעה – דני: מגיעים 2 אורחים".</p>
+            <details style="margin-bottom:14px">
+                <summary style="cursor:pointer;font-weight:600;color:var(--primary)">איך מקבלים קוד אישי (פעם אחת לכל טלפון)</summary>
+                <ol style="padding-right:20px;line-height:2;margin-top:8px">
+                    <li>נכנסים לאתר <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener">CallMeBot</a> ושומרים באנשי הקשר את מספר הטלפון של הבוט שמופיע שם.</li>
+                    <li>שולחים לבוט בוואטסאפ את ההודעה, באנגלית בדיוק כך: <code dir="ltr" style="background:var(--light);padding:2px 6px;border-radius:4px;user-select:all">I allow callmebot to send me messages</code></li>
+                    <li>תוך כמה דקות מגיעה תשובה עם <strong>קוד אישי</strong> (apikey).</li>
+                    <li>מוסיפים כאן למטה את השם, את מספר הטלפון ואת הקוד, ולוחצים "שליחת הודעת בדיקה".</li>
+                </ol>
+            </details>
+            <div id="waList" style="margin-bottom:14px"></div>
+            <form id="waForm" class="form-row" style="align-items:end" onsubmit="addWaRecipient(event)">
+                <div class="form-group" style="margin-bottom:0">
+                    <label class="form-label">שם</label>
+                    <input type="text" id="waName" class="form-input" placeholder="עמרי" required>
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                    <label class="form-label">טלפון</label>
+                    <input type="tel" id="waPhone" class="form-input" dir="ltr" style="text-align:right" placeholder="050-0000000" required>
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                    <label class="form-label">קוד אישי מהבוט</label>
+                    <input type="text" id="waKey" class="form-input" dir="ltr" style="text-align:right" placeholder="123456" required>
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                    <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">הוספה</button>
+                </div>
+            </form>
+            <div class="info-box" style="margin-top:14px">
+                ההודעה עוברת דרך השירות החינמי CallMeBot (לא שירות רשמי של וואטסאפ), וכוללת את שם המוזמן ואת התשובה שלו.
+                כי אין לנו שרת משלנו, מספר הטלפון והקוד נמצאים בתוך דף אישור ההגעה, ומוזמן שמבין במחשבים יכול למצוא אותם.
+                הקוד מאפשר לשלוח הודעות רק אליכם, לא לאחרים.
+            </div>
+        </div>
+
+        <div class="card" id="notifyCard">
+            <h3 class="card-title" style="margin-bottom:12px">🔔 התראות לטלפון על אישורי הגעה</h3>
+            <div id="notifyBody"></div>
+        </div>
     </main>
 
-    <script src="js/app.js?v=86"></script>
+    <script src="js/app.js?v=89"></script>
     <script>
         let dirty = false;
 
@@ -143,6 +185,132 @@
                 setTimeout(() => { msg.style.display = 'none'; }, 3000);
             }
         }
+
+        // ===== Phone notifications (ntfy) =====
+        function renderNotify(s) {
+            const el = document.getElementById('notifyBody');
+            if (!s.notifyEnabled || !s.notifyTopic) {
+                el.innerHTML = `
+                    <p class="muted" style="margin-bottom:12px">כשמוזמן עונה בדף אישור ההגעה, תקבלו התראה לטלפון, גם כשהמערכת סגורה. למשל: "🎉 דני: מגיעים 2 אנשים".</p>
+                    <button type="button" class="btn btn-primary" onclick="enableNotify()">הפעלת התראות</button>`;
+                return;
+            }
+            el.innerHTML = `
+                <p style="margin-bottom:12px">✅ <strong>פעיל.</strong> כדי לקבל את ההתראות, בכל טלפון שרוצה לקבל אותן:</p>
+                <ol style="padding-right:20px;line-height:2;margin-bottom:12px">
+                    <li>מתקינים את האפליקציה החינמית <strong>ntfy</strong>
+                        (<a href="https://apps.apple.com/app/ntfy/id1625396347" target="_blank" rel="noopener">אייפון</a> ·
+                        <a href="https://play.google.com/store/apps/details?id=io.heckel.ntfy" target="_blank" rel="noopener">אנדרואיד</a>).</li>
+                    <li>מהטלפון לוחצים כאן:
+                        <a class="btn btn-primary btn-sm" style="margin:4px 0" href="ntfy://ntfy.sh/${encodeURIComponent(s.notifyTopic)}">הרשמה בלחיצה אחת</a>
+                        <span class="muted">אם זה לא נפתח, באפליקציה לוחצים על <strong>+</strong> ומקלידים את שם הערוץ:</span>
+                        <div style="display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap">
+                            <code dir="ltr" style="background:var(--light);padding:6px 10px;border-radius:6px;font-size:0.95rem;user-select:all">${escapeHtml(s.notifyTopic)}</code>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="copyTopic()">העתקה</button>
+                        </div></li>
+                    <li>לוחצים כאן על <strong>"שליחת התראת בדיקה"</strong> ובודקים שההתראה הגיעה.</li>
+                </ol>
+                <label style="display:flex;gap:8px;align-items:center;margin-bottom:14px;cursor:pointer">
+                    <input type="checkbox" id="notifyNames" ${s.notifyNames !== false ? 'checked' : ''} onchange="setNotifyNames(this.checked)">
+                    להציג בהתראה את שם המוזמן
+                </label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="testNotify()">שליחת התראת בדיקה</button>
+                    <button type="button" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger)" onclick="disableNotify()">כיבוי התראות</button>
+                </div>
+                <div class="info-box" style="margin-top:14px">
+                    שם הערוץ הוא כמו סיסמה: מי שמכיר אותו יכול לקבל את ההתראות. אל תשתפו אותו, חוץ ממי שצריך לקבל אותן.
+                    ההתראה עוברת דרך שירות ההתראות ntfy, וכוללת רק את שם המוזמן ואת התשובה שלו, בלי טלפונים.
+                    כי אין לנו שרת משלנו, שם הערוץ נמצא גם בתוך דף אישור ההגעה, ומוזמן שמבין במחשבים יכול למצוא אותו.
+                    אם זה מפריע, אפשר לכבות את "להציג את שם המוזמן", ואז ההתראה תגיד רק "מוזמן: מגיעים 2 אורחים".
+                </div>`;
+        }
+
+        async function enableNotify() {
+            const topic = weddingSettings.notifyTopic || Notify.newTopic();
+            try {
+                await Settings.save({ notifyEnabled: true, notifyTopic: topic, notifyNames: weddingSettings.notifyNames !== false });
+            } catch (e) { showAlert('לא הצלחנו להפעיל: ' + e.message); }
+        }
+        async function disableNotify() {
+            if (!await showConfirm('לכבות את ההתראות לטלפון?', { title: 'כיבוי התראות', confirmText: 'כן, לכבות' })) return;
+            try { await Settings.save({ notifyEnabled: false }); }
+            catch (e) { showAlert('שגיאה: ' + e.message); }
+        }
+        async function setNotifyNames(on) {
+            try { await Settings.save({ notifyNames: on }); }
+            catch (e) { showAlert('שגיאה: ' + e.message); }
+        }
+        async function testNotify() {
+            try {
+                await Notify.send(weddingSettings.notifyTopic, {
+                    title: '🔔 בדיקה',
+                    message: 'ההתראות של ' + coupleTitle() + ' עובדות!',
+                    tags: ['tada'],
+                    click: new URL('index.html', location.href).href,
+                });
+                showAlert('נשלחה התראת בדיקה. היא אמורה להגיע לטלפון תוך כמה שניות.', { title: 'נשלח', emoji: '🔔' });
+            } catch (e) {
+                showAlert('השליחה נכשלה. בדקו את החיבור לאינטרנט ונסו שוב.', { title: 'לא נשלח' });
+            }
+        }
+        async function copyTopic() {
+            try { await navigator.clipboard.writeText(weddingSettings.notifyTopic); showAlert('שם הערוץ הועתק.', { title: 'הועתק', emoji: '📋' }); }
+            catch (e) { showAlert(weddingSettings.notifyTopic, { title: 'שם הערוץ' }); }
+        }
+
+        renderNotify(weddingSettings);
+        document.addEventListener('settings:change', (e) => renderNotify(e.detail));
+
+        // ===== WhatsApp notifications (CallMeBot) =====
+        function waRecipients() { return Array.isArray(weddingSettings.waRecipients) ? weddingSettings.waRecipients : []; }
+
+        function renderWa() {
+            const list = waRecipients();
+            document.getElementById('waList').innerHTML = list.length ? list.map((r, i) => `
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;flex-wrap:wrap">
+                    <strong>${escapeHtml(r.name)}</strong>
+                    <span class="muted" dir="ltr">${escapeHtml(r.phone)}</span>
+                    <span style="margin-right:auto;display:flex;gap:6px">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="testWa(${i})">שליחת הודעת בדיקה</button>
+                        <button type="button" class="btn-icon danger" onclick="removeWa(${i})" title="הסרה">${ICONS.trash}</button>
+                    </span>
+                </div>`).join('')
+                : '<div class="muted">עוד לא נוספו מקבלים.</div>';
+        }
+
+        async function addWaRecipient(e) {
+            e.preventDefault();
+            const r = {
+                name: document.getElementById('waName').value.trim(),
+                phone: document.getElementById('waPhone').value.trim(),
+                apikey: document.getElementById('waKey').value.trim(),
+            };
+            if (!WaNotify.phone(r.phone)) { showAlert('מספר הטלפון לא נראה תקין. כתבו אותו כמו 050-1234567.', { title: 'בדקו את המספר' }); return; }
+            try {
+                await Settings.save({ waRecipients: [...waRecipients(), r] });
+                document.getElementById('waForm').reset();
+                WaNotify.send([r], `💬 בדיקה: מעכשיו תקבל/י כאן התראות על אישורי הגעה לחתונה של ${coupleTitle()}`);
+                showAlert(`${r.name} נוסף/ה ונשלחה הודעת בדיקה בוואטסאפ.\nאם היא לא מגיעה תוך דקה, בדקו את המספר ואת הקוד.`, { title: 'נוסף', emoji: '💬' });
+            } catch (err) { showAlert('שגיאה בשמירה: ' + err.message); }
+        }
+
+        async function removeWa(i) {
+            const r = waRecipients()[i];
+            if (!r || !await showConfirm(`להפסיק לשלוח התראות בוואטסאפ ל${r.name}?`, { title: 'הסרה', confirmText: 'הסרה', danger: true })) return;
+            try { await Settings.save({ waRecipients: waRecipients().filter((_, j) => j !== i) }); }
+            catch (err) { showAlert('שגיאה: ' + err.message); }
+        }
+
+        function testWa(i) {
+            const r = waRecipients()[i];
+            if (!r) return;
+            WaNotify.send([r], `💬 בדיקה: ההתראות על אישורי הגעה לחתונה של ${coupleTitle()} עובדות!`);
+            showAlert(`נשלחה הודעת בדיקה ל${r.name}. היא אמורה להגיע בוואטסאפ תוך דקה.`, { title: 'נשלח', emoji: '💬' });
+        }
+
+        renderWa();
+        document.addEventListener('settings:change', renderWa);
 
         fill(weddingSettings);
         // Keep the form in sync with the server until the user starts typing

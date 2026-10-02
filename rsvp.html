@@ -193,9 +193,11 @@
                 respondedAt: Date.now(),
             };
             try {
+                const wasAnswered = !!invite.respondedAt;
                 await ref.update(answer);
                 invite = { ...invite, ...answer };
                 showDone();
+                notifyCouple(answer, wasAnswered);
             } catch (e) {
                 console.error(e);
                 err.textContent = 'לא הצלחנו לשלוח. בדקו את החיבור לאינטרנט ונסו שוב.';
@@ -204,6 +206,37 @@
                 btn.disabled = false;
                 btn.textContent = 'שליחה';
             }
+        }
+
+        // Phone notification to the couple (ntfy), if they turned it on. Never blocks the guest.
+        let eventInfo = {};
+        function notifyCouple(answer, changed) {
+            const topic = eventInfo.notifyTopic;
+            const wa = Array.isArray(eventInfo.waNotify) ? eventInfo.waNotify : [];
+            if (!topic && !wa.length) return;
+            const who = eventInfo.notifyNames === false ? 'מוזמן' : (invite.name || 'מוזמן');
+            const what = answer.status === 'yes'
+                ? `מגיעים ${answer.count} ${answer.count === 1 ? 'אורח' : 'אורחים'}`
+                : answer.status === 'maybe' ? 'עוד לא בטוחים' : 'לא יוכלו להגיע';
+            const title = (answer.status === 'yes' ? '🎉 אישור הגעה' : answer.status === 'no' ? '😔 לא מגיעים' : '🤔 אולי') + (changed ? ' (שינוי תשובה)' : '');
+            const message = `${who}: ${what}` + (answer.note && eventInfo.notifyNames !== false ? `\n💬 ${answer.note}` : '');
+            // WhatsApp via CallMeBot - one message per recipient (we can't read the reply, only send)
+            wa.forEach(r => {
+                if (!r || !r.phone || !r.apikey) return;
+                const url = 'https://api.callmebot.com/whatsapp.php?phone=' + encodeURIComponent(r.phone) +
+                    '&text=' + encodeURIComponent(title + '\n' + message) + '&apikey=' + encodeURIComponent(r.apikey);
+                fetch(url, { mode: 'no-cors', keepalive: true }).catch(() => {});
+            });
+            if (!topic) return;
+            fetch('https://ntfy.sh/', {
+                method: 'POST',
+                keepalive: true,
+                body: JSON.stringify({
+                    topic, title, message, priority: 4,
+                    tags: [answer.status === 'yes' ? 'tada' : answer.status === 'no' ? 'disappointed' : 'thinking'],
+                    click: new URL('guests.html', location.href).href,
+                }),
+            }).catch(() => {});
         }
 
         document.querySelectorAll('.choice').forEach(b => b.addEventListener('click', () => setChoice(b.dataset.v)));
@@ -216,6 +249,7 @@
             // Event details are optional - the page works without them
             db.collection('publicEvent').doc('main').get().then(snap => {
                 const ev = snap.exists ? snap.data() : {};
+                eventInfo = ev;
                 if (ev.coupleTitle) {
                     $('couple').textContent = ev.coupleTitle;
                     document.title = 'אישור הגעה - ' + ev.coupleTitle;
