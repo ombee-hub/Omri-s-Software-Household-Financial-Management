@@ -853,6 +853,38 @@ main { padding-bottom: 60px; }
 .rsvp-group button.on { color: white; font-weight: 600; }
 
 .num-cell { font-variant-numeric: tabular-nums; font-weight: 600; }
+/* ----- Fingerprint / face lock ----- */
+body.bio-locked { overflow: hidden; }
+.bio-lock {
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background:
+        radial-gradient(circle at 20% 20%, rgba(184, 137, 74, 0.18), transparent 45%),
+        radial-gradient(circle at 80% 80%, rgba(107, 47, 90, 0.22), transparent 45%),
+        linear-gradient(135deg, #faf7f6, #f1e6ec);
+}
+.bio-lock-card {
+    background: white;
+    border-radius: 20px;
+    padding: 36px 28px 26px;
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(107, 47, 90, 0.16);
+}
+.bio-lock-logo { width: 64px; height: 64px; border-radius: 50%; display: block; margin: 0 auto 12px; }
+.bio-lock-title { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+.bio-lock-sub { color: var(--gray-dark); margin: 4px 0 22px; }
+.bio-lock-btn { width: 100%; justify-content: center; padding: 14px; font-size: 1rem; }
+.bio-lock-btn svg { width: 22px; height: 22px; }
+.bio-lock-error { color: var(--danger); font-size: 0.88rem; min-height: 1.3em; margin: 10px 0 4px; }
+.link-btn { background: none; border: none; color: var(--primary); font-family: inherit; font-size: 0.92rem; cursor: pointer; text-decoration: underline; padding: 4px; }
+
 .btn-icon.wa-btn { color: #128c4a; }
 .btn-icon.wa-btn:hover { background: #e7f6ec; color: #0b6b37; }
 .rsvp-answered { font-size: 0.8rem; color: #0b6b37; margin-top: 2px; }

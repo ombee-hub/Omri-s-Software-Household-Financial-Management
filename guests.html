@@ -12,7 +12,7 @@
     <link rel="apple-touch-icon" href="images/heart-icon.png">
     <link rel="icon" type="image/png" href="images/heart-icon.png">
     <title>החתונה שלנו - מוזמנים</title>
-    <link rel="stylesheet" href="css/app.css?v=50">
+    <link rel="stylesheet" href="css/app.css?v=51">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -180,7 +180,7 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=83"></script>
+    <script src="js/app.js?v=86"></script>
     <script>
         document.getElementById('addGuestBtn').innerHTML = ICONS.plus + '<span>הוספת מוזמן</span>';
         document.getElementById('importBtn').innerHTML = ICONS.upload + '<span>ייבוא מאקסל</span>';
@@ -573,7 +573,7 @@
             const c = guestCounts(list);
             rows.push([]);
             rows.push(['סה"כ', '', '', '', c.invited, '', c.confirmed]);
-            exportToExcel(`מוזמנים - ${coupleTitle()} - ${todayISO()}`, 'מוזמנים', rows);
+            exportToExcel('Sapir_and_Omri_Wedding', 'מוזמנים', rows);
         }
 
         // ===== Import =====
@@ -664,6 +664,7 @@
             const gn = (weddingSettings.groomName || '').toLowerCase();
             const bn = (weddingSettings.brideName || '').toLowerCase();
             // Parents first: "הורי החתן" also contains "חתן"
+            if (/יותם/.test(s)) return 'yotam';
             const parents = /הור|parent/.test(s);
             if (/חתן|groom/.test(s) || (gn && s.includes(gn))) return parents ? 'groomParents' : 'groom';
             if (/כלה|bride/.test(s) || (bn && s.includes(bn))) return parents ? 'brideParents' : 'bride';

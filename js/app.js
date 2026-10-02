@@ -58,6 +58,7 @@ const ICONS = {
     download: _svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
     search: _svg('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
     whatsapp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.75-.86-2.02-.96-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.79-1.47-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.08 1.75-.71 2-1.4.25-.69.25-1.28.17-1.4-.07-.13-.27-.2-.57-.35zM12.04 21.5h-.01a9.5 9.5 0 0 1-4.84-1.33l-.35-.2-3.6.94.96-3.5-.23-.36a9.46 9.46 0 0 1-1.45-5.05c0-5.24 4.27-9.5 9.52-9.5a9.46 9.46 0 0 1 9.51 9.51c0 5.24-4.27 9.5-9.51 9.5zm8.1-17.6A11.4 11.4 0 0 0 12.04.5C5.73.5.6 5.63.6 11.94c0 2.02.53 3.98 1.53 5.72L.5 23.5l5.98-1.57a11.4 11.4 0 0 0 5.46 1.39h.01c6.31 0 11.44-5.13 11.44-11.44 0-3.06-1.19-5.93-3.35-8.09z"/></svg>',
+    fingerprint: _svg('<path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/><path d="M5 19.5C5.5 18 6 15 6 12c0-.7.12-1.37.34-2"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"/>'),
     link: _svg('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
     phone: _svg('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>'),
 };
@@ -383,19 +384,172 @@ function handleAuthState(user) {
         return;
     }
     if (!isLoginPage) {
-        mountHeader();
-        if (user) ensureUserDoc(user);
-        if (user) Rsvp.startSync();
-        if (!_settingsUnsub) {
-            _settingsUnsub = Settings.subscribe((s) => {
-                weddingSettings = s;
-                document.querySelectorAll('[data-brand-names]').forEach(el => { el.textContent = coupleTitle(s); });
-                document.dispatchEvent(new CustomEvent('settings:change', { detail: s }));
-            });
+        // Fingerprint / face lock on this device: nothing loads until it is unlocked
+        if (user && BioLock.isEnabled(user.uid) && !BioLock.isUnlocked(user.uid)) {
+            hideSplash();
+            showBioLock(user, () => startApp(user));
+            return;
         }
-        document.dispatchEvent(new CustomEvent('auth:ready', { detail: { user } }));
+        startApp(user);
     }
     hideSplash();
+}
+
+let _appStarted = false;
+function startApp(user) {
+    if (_appStarted) return;
+    _appStarted = true;
+    mountHeader();
+    if (user) ensureUserDoc(user);
+    if (user) Rsvp.startSync();
+    if (!_settingsUnsub) {
+        _settingsUnsub = Settings.subscribe((s) => {
+            weddingSettings = s;
+            document.querySelectorAll('[data-brand-names]').forEach(el => { el.textContent = coupleTitle(s); });
+            document.dispatchEvent(new CustomEvent('settings:change', { detail: s }));
+        });
+    }
+    document.dispatchEvent(new CustomEvent('auth:ready', { detail: { user } }));
+    if (user) {
+        BioLock.watchBackground(user);
+        BioLock.offerOnce(user);
+    }
+}
+
+// ===== Fingerprint / Face ID lock (WebAuthn with this device's built-in sensor) =====
+// After logging in with the password once, a device can be set to open the system
+// with the phone's / computer's own fingerprint or face check. It locks again on a
+// new session and after 5 minutes in the background. The password always works.
+const BIO_KEY = 'wedding_bio_lock';
+const BIO_UNLOCK_KEY = 'wedding_bio_unlocked';
+const BIO_OFFER_KEY = 'wedding_bio_offer_dismissed';
+const BIO_HIDDEN_AT_KEY = 'wedding_bio_hidden_at';
+const BIO_RELOCK_MS = 5 * 60 * 1000;
+
+const BioLock = {
+    async supported() {
+        try {
+            return !!(window.PublicKeyCredential && window.isSecureContext &&
+                await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable());
+        } catch (e) { return false; }
+    },
+    get(uid) {
+        try {
+            const d = JSON.parse(localStorage.getItem(BIO_KEY) || 'null');
+            return d && d.uid === uid && d.credId ? d : null;
+        } catch (e) { return null; }
+    },
+    isEnabled(uid) { return !!BioLock.get(uid); },
+    _toB64(buf) {
+        return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    },
+    _fromB64(s) {
+        const b = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+        return Uint8Array.from(b, c => c.charCodeAt(0));
+    },
+    _challenge() { return crypto.getRandomValues(new Uint8Array(32)); },
+    async enable(user) {
+        const cred = await navigator.credentials.create({
+            publicKey: {
+                challenge: BioLock._challenge(),
+                rp: { name: 'מערכת החתונה', id: location.hostname },
+                user: { id: new TextEncoder().encode(user.uid), name: user.email || user.uid, displayName: getDisplayName(user) },
+                pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+                authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'preferred' },
+                timeout: 60000,
+                attestation: 'none',
+            },
+        });
+        localStorage.setItem(BIO_KEY, JSON.stringify({ uid: user.uid, credId: BioLock._toB64(cred.rawId), at: Date.now() }));
+        BioLock.markUnlocked(user.uid);
+    },
+    disable() { try { localStorage.removeItem(BIO_KEY); } catch (e) {} },
+    async verify(uid) {
+        const d = BioLock.get(uid);
+        if (!d) throw new Error('not enabled');
+        const a = await navigator.credentials.get({
+            publicKey: {
+                challenge: BioLock._challenge(),
+                allowCredentials: [{ type: 'public-key', id: BioLock._fromB64(d.credId), transports: ['internal'] }],
+                userVerification: 'required',
+                timeout: 60000,
+            },
+        });
+        // Byte 32 of authenticatorData holds the flags; 0x04 = the user was verified (finger / face)
+        const flags = new Uint8Array(a.response.authenticatorData)[32];
+        if (!(flags & 0x04)) throw new Error('not verified');
+        BioLock.markUnlocked(uid);
+    },
+    markUnlocked(uid) { try { sessionStorage.setItem(BIO_UNLOCK_KEY, uid); } catch (e) {} },
+    isUnlocked(uid) { try { return sessionStorage.getItem(BIO_UNLOCK_KEY) === uid; } catch (e) { return false; } },
+    lock() { try { sessionStorage.removeItem(BIO_UNLOCK_KEY); } catch (e) {} },
+    // Lock again after the app was in the background for a while
+    watchBackground(user) {
+        document.addEventListener('visibilitychange', () => {
+            if (!BioLock.isEnabled(user.uid)) return;
+            try {
+                if (document.hidden) {
+                    sessionStorage.setItem(BIO_HIDDEN_AT_KEY, String(Date.now()));
+                } else {
+                    const at = Number(sessionStorage.getItem(BIO_HIDDEN_AT_KEY) || 0);
+                    if (at && Date.now() - at > BIO_RELOCK_MS) {
+                        BioLock.lock();
+                        showBioLock(user, () => {});
+                    }
+                }
+            } catch (e) {}
+        });
+    },
+    // Suggest turning it on once per device, after a normal login
+    async offerOnce(user) {
+        try {
+            if (BioLock.isEnabled(user.uid) || localStorage.getItem(BIO_OFFER_KEY)) return;
+            if (!await BioLock.supported()) return;
+            localStorage.setItem(BIO_OFFER_KEY, '1');
+            const ok = await showConfirm('בפעם הבאה אפשר להיכנס עם טביעת אצבע או זיהוי פנים, בלי להקליד סיסמה.\nאפשר לשנות את זה תמיד במסך "משתמשים ופרופיל".', {
+                title: 'כניסה מהירה במכשיר הזה?', confirmText: 'כן, להפעיל', cancelText: 'לא עכשיו', emoji: '👆',
+            });
+            if (ok) await BioLock.enable(user);
+        } catch (e) {
+            console.warn('biometric setup skipped', e);
+        }
+    },
+};
+
+function showBioLock(user, onUnlock) {
+    if (document.getElementById('bioLock')) return;
+    const el = document.createElement('div');
+    el.id = 'bioLock';
+    el.className = 'bio-lock';
+    el.innerHTML = `
+        <div class="bio-lock-card">
+            <img src="images/heart-icon.png" alt="" class="bio-lock-logo">
+            <div class="bio-lock-title">${escapeHtml(coupleTitle())}</div>
+            <div class="bio-lock-sub">המערכת נעולה</div>
+            <button type="button" class="btn btn-primary bio-lock-btn" id="bioUnlockBtn">${ICONS.fingerprint}<span>פתיחה בטביעת אצבע / פנים</span></button>
+            <div class="bio-lock-error" id="bioLockError"></div>
+            <button type="button" class="link-btn bio-lock-password" id="bioPasswordBtn">כניסה עם סיסמה במקום</button>
+        </div>`;
+    document.body.appendChild(el);
+    document.body.classList.add('bio-locked');
+    const errEl = el.querySelector('#bioLockError');
+    const attempt = async (silent) => {
+        errEl.textContent = '';
+        try {
+            await BioLock.verify(user.uid);
+            el.remove();
+            document.body.classList.remove('bio-locked');
+            onUnlock();
+        } catch (e) {
+            if (!silent) errEl.textContent = 'לא הצלחנו לזהות. נסו שוב, או היכנסו עם הסיסמה.';
+        }
+    };
+    el.querySelector('#bioUnlockBtn').addEventListener('click', () => attempt(false));
+    el.querySelector('#bioPasswordBtn').addEventListener('click', async () => {
+        try { await auth.signOut(); } catch (e) {}
+        window.location.href = 'login.html';
+    });
+    attempt(true); // some browsers allow asking right away; otherwise the button does it
 }
 
 async function ensureUserDoc(user) {
@@ -450,9 +604,10 @@ const GUEST_SIDES = [
     { value: 'bride', label: 'צד הכלה' },
     { value: 'groomParents', label: 'צד הורי החתן' },
     { value: 'brideParents', label: 'צד הורי הכלה' },
+    { value: 'yotam', label: 'צד יותם' },
     { value: 'none', label: 'לא צוין' },
 ];
-const SIDE_VALUES = ['groom', 'bride', 'groomParents', 'brideParents'];
+const SIDE_VALUES = ['groom', 'bride', 'groomParents', 'brideParents', 'yotam'];
 
 function guestSide(g) {
     return SIDE_VALUES.includes(g && g.side) ? g.side : 'none';
@@ -463,6 +618,7 @@ function sideLabel(value, s = weddingSettings) {
     if (value === 'bride') return s.brideName ? `צד ${s.brideName}` : 'צד הכלה';
     if (value === 'groomParents') return s.groomName ? `צד הורי ${s.groomName}` : 'צד הורי החתן';
     if (value === 'brideParents') return s.brideName ? `צד הורי ${s.brideName}` : 'צד הורי הכלה';
+    if (value === 'yotam') return 'צד יותם';
     return 'לא צוין';
 }
 

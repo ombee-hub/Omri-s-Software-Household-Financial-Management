@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" href="images/heart-icon.png">
     <link rel="icon" type="image/png" href="images/heart-icon.png">
     <title>החתונה שלנו - משתמשים</title>
-    <link rel="stylesheet" href="css/app.css?v=50">
+    <link rel="stylesheet" href="css/app.css?v=51">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -122,6 +122,11 @@
         </div>
 
         <div class="card">
+            <h3 class="card-title" style="margin-bottom:14px">כניסה בטביעת אצבע / זיהוי פנים</h3>
+            <div id="bioContainer" class="muted">בודק אם המכשיר תומך...</div>
+        </div>
+
+        <div class="card">
             <h3 class="card-title" style="margin-bottom:14px">הוספת משתמש (למשל ההורים)</h3>
             <div class="info-box">
                 <strong>1.</strong> יוצרים משתמש עם אימייל וסיסמה ב-
@@ -188,7 +193,7 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=83"></script>
+    <script src="js/app.js?v=86"></script>
     <script>
         document.getElementById('closeBtn').innerHTML = ICONS.close;
         document.getElementById('dnCloseBtn').innerHTML = ICONS.close;
@@ -361,7 +366,61 @@
             }
             // Subscribe to all users
             Profiles.subscribe(items => { usersData = items; renderUsers(items); });
+            renderBio();
         });
+
+        // ===== Fingerprint / face login on this device =====
+        async function renderBio() {
+            const el = document.getElementById('bioContainer');
+            const me = currentUser();
+            if (!me) return;
+            if (!await BioLock.supported()) {
+                el.innerHTML = `<div class="info-box">המכשיר או הדפדפן הזה לא תומכים בכניסה בטביעת אצבע או בזיהוי פנים.
+                    בטלפון זה עובד בדפדפן הרגיל (Safari באייפון, Chrome באנדרואיד), ובמחשב עם Windows Hello או Touch ID.</div>`;
+                return;
+            }
+            const on = BioLock.isEnabled(me.uid);
+            el.innerHTML = `
+                <p style="margin-bottom:12px;color:var(--gray-dark)">
+                    ${on
+                        ? '✅ <strong style="color:var(--dark)">פעיל במכשיר הזה.</strong> כשפותחים את המערכת היא מבקשת טביעת אצבע או זיהוי פנים, וגם אחרי 5 דקות ברקע.'
+                        : 'במקום להקליד סיסמה, אפשר לפתוח את המערכת עם טביעת האצבע או זיהוי הפנים של המכשיר הזה. הסיסמה תמיד תמשיך לעבוד.'}
+                </p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    ${on
+                        ? `<button class="btn btn-outline btn-sm" onclick="testBio()">${ICONS.fingerprint}<span>בדיקה</span></button>
+                           <button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger)" onclick="disableBio()">כיבוי במכשיר הזה</button>`
+                        : `<button class="btn btn-primary btn-sm" onclick="enableBio()">${ICONS.fingerprint}<span>הפעלה במכשיר הזה</span></button>`}
+                </div>
+                <div class="muted" style="margin-top:10px">ההגדרה נשמרת רק במכשיר הזה. בכל טלפון או מחשב מפעילים בנפרד.</div>`;
+        }
+
+        async function enableBio() {
+            try {
+                await BioLock.enable(currentUser());
+                showAlert('מעכשיו המערכת תיפתח במכשיר הזה עם טביעת אצבע או זיהוי פנים.', { title: 'הופעל!', emoji: '👆' });
+            } catch (e) {
+                console.warn(e);
+                showAlert('ההפעלה בוטלה או לא הצליחה. אפשר לנסות שוב.', { title: 'לא הופעל' });
+            }
+            renderBio();
+        }
+
+        async function testBio() {
+            try {
+                await BioLock.verify(currentUser().uid);
+                showAlert('הזיהוי עבד.', { title: 'מעולה', emoji: '✅' });
+            } catch (e) {
+                showAlert('הזיהוי לא הצליח.', { title: 'לא זוהה' });
+            }
+        }
+
+        async function disableBio() {
+            const ok = await showConfirm('לכבות כניסה בטביעת אצבע / פנים במכשיר הזה?', { title: 'כיבוי', confirmText: 'כן, לכבות' });
+            if (!ok) return;
+            BioLock.disable();
+            renderBio();
+        }
     </script>
 </body>
 </html>
