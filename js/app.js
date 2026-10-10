@@ -307,19 +307,11 @@ function coupleTitle(s = weddingSettings) {
 }
 
 // ===== Side menu (shared by every page) =====
+// The system now holds only the countdown table
 const NAV_LINKS = [
-    { href: 'index.html', label: 'דאשבורד', icon: ICONS.dashboard },
-    { href: 'guests.html', label: 'מוזמנים', icon: ICONS.guests },
-    { href: 'budget.html', label: 'תקציב וספקים', icon: ICONS.wallet },
-    { href: 'seating.html', label: 'סידורי הושבה', icon: ICONS.table },
-    { href: 'sheets.html', label: 'קבצי אקסל', icon: ICONS.sheet },
-    { href: 'tasks.html', label: 'משימות', icon: ICONS.task },
     { href: 'countdown.html', label: 'טבלת ייאוש', icon: ICONS.calendar },
 ];
-const ACCOUNT_LINKS = [
-    { href: 'settings.html', label: 'הגדרות החתונה', icon: ICONS.settings },
-    { href: 'users.html', label: 'משתמשים ופרופיל', icon: ICONS.users },
-];
+const ACCOUNT_LINKS = [];
 
 function renderHeader() {
     const activePage = window.location.pathname.split('/').pop() || 'index.html';
@@ -349,8 +341,7 @@ function renderHeader() {
         </div>
         <nav class="sidebar-nav">
             ${NAV_LINKS.map(link).join('')}
-            <div class="sidebar-label">חשבון</div>
-            ${ACCOUNT_LINKS.map(link).join('')}
+            ${ACCOUNT_LINKS.length ? '<div class="sidebar-label">חשבון</div>' + ACCOUNT_LINKS.map(link).join('') : ''}
         </nav>
         <div class="sidebar-footer">
             <div class="sidebar-user">
@@ -419,7 +410,7 @@ function handleAuthState(user) {
         return;
     }
     if (user && isLoginPage) {
-        window.location.replace('index.html');
+        window.location.replace('countdown.html');
         return;
     }
     if (!isLoginPage) {
@@ -440,7 +431,6 @@ function startApp(user) {
     _appStarted = true;
     mountHeader();
     if (user) ensureUserDoc(user);
-    if (user) Rsvp.startSync();
     if (!_settingsUnsub) {
         _settingsUnsub = Settings.subscribe((s) => {
             weddingSettings = s;
@@ -451,7 +441,6 @@ function startApp(user) {
     document.dispatchEvent(new CustomEvent('auth:ready', { detail: { user } }));
     if (user) {
         BioLock.watchBackground(user);
-        BioLock.offerOnce(user);
     }
 }
 

@@ -107,7 +107,7 @@
         <div class="cd-months" id="months"></div>
     </main>
 
-    <script src="js/app.js?v=90"></script>
+    <script src="js/app.js?v=91"></script>
     <script>
         const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
         const DOW = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -135,7 +135,7 @@
             const hero = document.getElementById('heroCard');
             const monthsEl = document.getElementById('months');
             if (!w) {
-                hero.innerHTML = `<div class="empty-state"><h3>עוד לא הוגדר תאריך חתונה</h3><p>מגדירים אותו ב<a href="settings.html">הגדרות החתונה</a>.</p></div>`;
+                hero.innerHTML = `<div class="empty-state"><h3>טוען את תאריך החתונה...</h3></div>`;
                 monthsEl.innerHTML = '';
                 return;
             }

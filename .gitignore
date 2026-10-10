@@ -14,3 +14,6 @@ firebase-debug.log
 
 # Excel temporary lock files
 ~$*
+
+# Local data exports (personal data - never commit)
+config/backup-*.json
