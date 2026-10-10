@@ -314,6 +314,7 @@ const NAV_LINKS = [
     { href: 'seating.html', label: 'סידורי הושבה', icon: ICONS.table },
     { href: 'sheets.html', label: 'קבצי אקסל', icon: ICONS.sheet },
     { href: 'tasks.html', label: 'משימות', icon: ICONS.task },
+    { href: 'countdown.html', label: 'טבלת ייאוש', icon: ICONS.calendar },
 ];
 const ACCOUNT_LINKS = [
     { href: 'settings.html', label: 'הגדרות החתונה', icon: ICONS.settings },
