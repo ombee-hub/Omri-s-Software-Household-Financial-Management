@@ -19,10 +19,18 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="js/firebase-init.js"></script>
     <style>
-        .cd-hero { display: flex; justify-content: space-between; align-items: center; gap: 18px; flex-wrap: wrap; }
-        .cd-big { font-size: 3.2rem; font-weight: 700; line-height: 1; color: var(--primary); }
-        .cd-big-label { color: var(--gray-dark); margin-top: 4px; }
-        .cd-progress { flex: 1; min-width: 220px; }
+        .cd-hero { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+        .cd-count {
+            flex: 1;
+            min-width: 180px;
+            border-radius: var(--radius);
+            padding: 18px 20px;
+            color: white;
+        }
+        .cd-count.wedding { background: linear-gradient(135deg, var(--primary-dark), var(--primary-light)); }
+        .cd-count.henna { background: linear-gradient(135deg, #8a5a1f, #c08a3e); }
+        .cd-count-num { font-size: 3rem; font-weight: 700; line-height: 1; }
+        .cd-count-label { opacity: 0.9; margin-top: 6px; }
         .cd-progress-row { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
         .cd-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
 
@@ -38,24 +46,19 @@
             border: 1px solid var(--border);
             border-radius: 8px;
             background: white;
-            font-family: inherit;
             font-size: 0.95rem;
             font-weight: 600;
             color: var(--dark);
-            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 0;
-            transition: background 0.15s, transform 0.1s;
         }
-        .cd-day:hover { background: var(--light); }
-        .cd-day:active { transform: scale(0.94); }
-        .cd-day.empty { border: none; background: none; cursor: default; }
-        .cd-day.out { color: var(--border); background: var(--light-2); cursor: default; }
+        .cd-day.empty { border: none; background: none; }
+        .cd-day.out { color: var(--border); background: var(--light-2); }
         .cd-day.today { border: 2px solid var(--primary); }
-        .cd-day.marked { background: #fbf3f8; color: var(--gray); }
-        .cd-day.marked::after {
+        .cd-day.passed { background: #fbf3f8; color: var(--gray); }
+        /* Automatic red X on every day that has passed */
+        .cd-day.passed::after {
             content: '';
             position: absolute;
             inset: 12%;
@@ -65,13 +68,8 @@
             border-radius: 2px;
             pointer-events: none;
         }
-        .cd-day.wedding {
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
-            color: white;
-            border: none;
-            cursor: default;
-            font-size: 1.3rem;
-        }
+        .cd-day.henna { background: linear-gradient(135deg, #8a5a1f, #c08a3e); color: white; border: none; font-size: 1.2rem; }
+        .cd-day.wedding { background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; border: none; font-size: 1.3rem; }
         .cd-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.85rem; color: var(--gray-dark); margin-bottom: 16px; }
         .cd-legend span { display: inline-flex; align-items: center; gap: 6px; }
         .cd-swatch { width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--border); position: relative; display: inline-block; }
@@ -80,8 +78,7 @@
             .sidebar, .mobile-topbar, .sidebar-overlay, .cd-actions, .no-print { display: none !important; }
             body.has-sidebar { padding-right: 0 !important; }
             .cd-month { break-inside: avoid; box-shadow: none; border: 1px solid #ddd; }
-            .cd-day.marked::after { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-            .cd-day.wedding { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            .cd-day.passed::after, .cd-day.henna, .cd-day.wedding, .cd-count { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
         }
     </style>
 </head>
@@ -92,132 +89,111 @@
     <div class="page-title-bar">
         <div class="container">
             <h2>טבלת ייאוש</h2>
-            <div class="subtitle">כל יום שעובר – מסמנים איקס. הסימונים משותפים לכולם.</div>
+            <div class="subtitle">כל יום שעובר מקבל איקס לבד. רק לחכות 😊</div>
         </div>
     </div>
 
     <main class="container">
-        <div class="card" id="heroCard"></div>
+        <div id="hero" class="cd-hero"></div>
+        <div class="card" id="progressCard"></div>
         <div class="cd-legend no-print">
-            <span><span class="cd-swatch" style="background:#fbf3f8"></span> מסומן</span>
+            <span><span class="cd-swatch" style="background:#fbf3f8"></span> עבר (איקס אוטומטי)</span>
             <span><span class="cd-swatch" style="border:2px solid var(--primary)"></span> היום</span>
-            <span><span class="cd-swatch" style="background:linear-gradient(135deg,var(--primary),var(--primary-light));border:none"></span> יום החתונה</span>
-            <span>לוחצים על יום כדי לסמן או לבטל</span>
+            <span><span class="cd-swatch" style="background:linear-gradient(135deg,#8a5a1f,#c08a3e);border:none"></span> חינה</span>
+            <span><span class="cd-swatch" style="background:linear-gradient(135deg,var(--primary),var(--primary-light));border:none"></span> חתונה</span>
         </div>
         <div class="cd-months" id="months"></div>
     </main>
 
-    <script src="js/app.js?v=91"></script>
+    <script src="js/app.js?v=92"></script>
     <script>
         const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
         const DOW = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+        const WEDDING_DATE = '2027-02-03'; // fixed
+        const HENNA_DATE = '2027-01-20';
         const ref = () => db.collection('countdown').doc('main');
-        let marks = {};      // 'YYYY-MM-DD' -> { by, at }
         let startDate = '';  // first day of the table
 
         const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         const fromIso = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
         const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
-
-        function weddingIso() { return weddingSettings.weddingDate || ''; }
+        const weddingIso = () => weddingSettings.weddingDate || WEDDING_DATE;
+        const hennaIso = () => weddingSettings.hennaDate || HENNA_DATE;
 
         // All days from the start up to (not including) the wedding day
         function tableDays() {
             const w = weddingIso();
-            if (!w || !startDate || startDate >= w) return [];
+            if (!startDate || startDate >= w) return [];
             const out = [];
             for (let d = fromIso(startDate); iso(d) < w; d = addDays(d, 1)) out.push(iso(d));
             return out;
         }
 
+        function countCard(cls, emoji, title, dateIso) {
+            const left = daysUntil(dateIso);
+            const num = left > 0 ? fmtNum(left) : emoji;
+            const label = left > 1 ? `ימים ל${title} · ${fmtDate(dateIso)}`
+                : left === 1 ? `מחר ה${title}! · ${fmtDate(dateIso)}`
+                : left === 0 ? `היום ה${title}! 🎉` : `ה${title} הייתה ב-${fmtDate(dateIso)}`;
+            return `<div class="cd-count ${cls}"><div class="cd-count-num">${num}</div><div class="cd-count-label">${label}</div></div>`;
+        }
+
         function render() {
-            const w = weddingIso();
-            const hero = document.getElementById('heroCard');
-            const monthsEl = document.getElementById('months');
-            if (!w) {
-                hero.innerHTML = `<div class="empty-state"><h3>טוען את תאריך החתונה...</h3></div>`;
-                monthsEl.innerHTML = '';
-                return;
-            }
+            const w = weddingIso(), h = hennaIso();
             const days = tableDays();
             const today = todayISO();
-            const markedCount = days.filter(d => marks[d]).length;
-            const left = daysUntil(w);
-            const pct = days.length ? Math.round(markedCount / days.length * 100) : 0;
-            hero.innerHTML = `
-                <div class="cd-hero">
-                    <div>
-                        <div class="cd-big">${left > 0 ? fmtNum(left) : '💍'}</div>
-                        <div class="cd-big-label">${left > 0 ? 'ימים לחתונה · ' + fmtDate(w) : left === 0 ? 'היום החתונה! מזל טוב 🎉' : 'מזל טוב!'}</div>
-                    </div>
-                    <div class="cd-progress">
-                        <div class="cd-progress-row"><span>סימנתם</span><span><strong>${fmtNum(markedCount)}</strong> מתוך ${fmtNum(days.length)} ימים (${pct}%)</span></div>
-                        <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
-                    </div>
-                </div>
-                <div class="cd-actions">
-                    ${days.includes(today) && !marks[today] ? `<button class="btn btn-primary btn-sm" onclick="toggle('${today}')">✕ לסמן את היום</button>` : ''}
-                    ${days.some(d => d < today && !marks[d]) ? `<button class="btn btn-outline btn-sm" onclick="markPast()">לסמן את כל הימים שעברו</button>` : ''}
-                    <button class="btn btn-outline btn-sm" onclick="window.print()">הדפסה</button>
-                </div>`;
+            document.getElementById('hero').innerHTML =
+                (h < w ? countCard('henna', '🌿', 'חינה', h) : '') + countCard('wedding', '💍', 'חתונה', w);
 
+            // Every day before today gets an X automatically
+            const passed = days.filter(d => d < today).length;
+            const pct = days.length ? Math.round(passed / days.length * 100) : 0;
+            document.getElementById('progressCard').innerHTML = `
+                <div class="cd-progress-row"><span>עברו</span><span><strong>${fmtNum(passed)}</strong> מתוך ${fmtNum(days.length)} ימים (${pct}%)</span></div>
+                <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
+                <div class="cd-actions"><button class="btn btn-outline btn-sm" onclick="window.print()">הדפסה</button></div>`;
+
+            const monthsEl = document.getElementById('months');
             if (!days.length) { monthsEl.innerHTML = ''; return; }
-            // Group by month, calendar layout (Sunday first)
             const byMonth = new Map();
             days.forEach(d => { const k = d.slice(0, 7); (byMonth.get(k) || byMonth.set(k, []).get(k)).push(d); });
-            const wKey = w.slice(0, 7);
-            if (!byMonth.has(wKey)) byMonth.set(wKey, []);
+            if (!byMonth.has(w.slice(0, 7))) byMonth.set(w.slice(0, 7), []);
             monthsEl.innerHTML = [...byMonth.keys()].map(key => {
                 const [y, m] = key.split('-').map(Number);
                 const first = new Date(y, m - 1, 1);
                 const dim = new Date(y, m, 0).getDate();
                 const inTable = new Set(byMonth.get(key));
-                const monthMarked = byMonth.get(key).filter(d => marks[d]).length;
+                const monthPassed = byMonth.get(key).filter(d => d < today).length;
                 let cells = DOW.map(d => `<div class="cd-dow">${d}</div>`).join('');
                 for (let i = 0; i < first.getDay(); i++) cells += '<div class="cd-day empty"></div>';
                 for (let day = 1; day <= dim; day++) {
                     const d = iso(new Date(y, m - 1, day));
                     if (d === w) { cells += `<div class="cd-day wedding" title="יום החתונה">💍</div>`; continue; }
                     if (!inTable.has(d)) { cells += `<div class="cd-day out">${day}</div>`; continue; }
-                    const mk = marks[d];
-                    const tip = mk ? `סומן${mk.by ? ' ע״י ' + mk.by : ''}` : 'לחצו לסימון';
-                    cells += `<button type="button" class="cd-day ${mk ? 'marked' : ''} ${d === today ? 'today' : ''}" onclick="toggle('${d}')" title="${escapeHtml(tip)}" aria-pressed="${mk ? 'true' : 'false'}" aria-label="${day} ב${MONTHS[m - 1]}">${day}</button>`;
+                    const cls = [d < today ? 'passed' : '', d === today ? 'today' : '', d === h ? 'henna' : ''].filter(Boolean).join(' ');
+                    const content = d === h ? '🌿' : day;
+                    const title = d === h ? 'יום החינה' : d < today ? 'עבר' : d === today ? 'היום' : '';
+                    cells += `<div class="cd-day ${cls}" title="${title}" aria-label="${day} ב${MONTHS[m - 1]}${title ? ' – ' + title : ''}">${content}</div>`;
                 }
                 return `<div class="card cd-month">
-                    <div class="cd-month-title"><span>${MONTHS[m - 1]} ${y}</span>${inTable.size ? `<span class="cd-month-count">${monthMarked}/${inTable.size}</span>` : ''}</div>
+                    <div class="cd-month-title"><span>${MONTHS[m - 1]} ${y}</span>${inTable.size ? `<span class="cd-month-count">${monthPassed}/${inTable.size}</span>` : ''}</div>
                     <div class="cd-grid">${cells}</div>
                 </div>`;
             }).join('');
         }
 
-        async function toggle(d) {
-            const on = !marks[d];
-            // Optimistic: show it right away, Firestore confirms
-            if (on) marks[d] = { by: getDisplayName(currentUser()), at: Date.now() }; else delete marks[d];
-            render();
-            try {
-                if (on) await ref().set({ marks: { [d]: marks[d] } }, { merge: true });
-                else await ref().update(new firebase.firestore.FieldPath('marks', d), firebase.firestore.FieldValue.delete());
-            } catch (e) { showAlert('שגיאה בשמירה: ' + e.message); }
+        // A new day starts while the page is open: refresh at midnight
+        function scheduleMidnight() {
+            const now = new Date();
+            const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
+            setTimeout(() => { render(); scheduleMidnight(); }, next - now);
         }
-
-        async function markPast() {
-            const today = todayISO();
-            const past = tableDays().filter(d => d < today && !marks[d]);
-            if (!past.length) return;
-            const by = getDisplayName(currentUser());
-            const add = {};
-            past.forEach(d => { add[d] = { by, at: Date.now() }; marks[d] = add[d]; });
-            render();
-            try { await ref().set({ marks: add }, { merge: true }); }
-            catch (e) { showAlert('שגיאה בשמירה: ' + e.message); }
-        }
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
 
         document.addEventListener('settings:change', render);
         document.addEventListener('auth:ready', () => {
             ref().onSnapshot(async (snap) => {
                 const data = snap.exists ? snap.data() : {};
-                marks = data.marks || {};
                 startDate = data.startDate || '';
                 // First visit: the table starts today
                 if (!startDate) {
@@ -226,6 +202,7 @@
                 }
                 render();
             }, (err) => console.error('countdown listener', err));
+            scheduleMidnight();
         });
     </script>
 </body>
