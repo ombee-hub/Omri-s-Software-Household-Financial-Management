@@ -39,6 +39,8 @@
         .cd-count-num { font-size: 3rem; font-weight: 700; line-height: 1; }
         .cd-count-label { opacity: 0.9; margin-top: 6px; font-size: 1rem; }
         .cd-count-edit { position: absolute; top: 12px; left: 14px; font-size: 0.8rem; opacity: 0.85; text-decoration: underline; }
+        @keyframes cd-flash { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(107, 47, 90, 0); } 50% { transform: scale(1.18); box-shadow: 0 0 0 6px rgba(184, 137, 74, 0.55); } }
+        .cd-day.flash { animation: cd-flash 0.6s ease-in-out 3; z-index: 2; }
         .cd-progress-row { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
         .cd-actions { display: flex; flex-wrap: wrap; margin: 14px -4px 0; }
         .cd-actions .btn { margin: 0 4px 6px; }
@@ -106,7 +108,7 @@
     <div class="page-title-bar">
         <div class="container">
             <h2>טבלת ייאוש</h2>
-            <div class="subtitle">לוחצים על יום כדי לסמן איקס, ושוב כדי לבטל. לוחצים על החינה או החתונה כדי לשנות תאריך.</div>
+            <div class="subtitle">לוחצים על יום כדי לסמן איקס, ושוב כדי לבטל. לחיצה על החינה או החתונה למעלה מקפיצה ליום שלהם בטבלה.</div>
         </div>
     </div>
 
@@ -122,28 +124,7 @@
         <div class="cd-months" id="months"></div>
     </main>
 
-    <!-- Change the henna / wedding date -->
-    <div class="modal-backdrop" id="dateModal">
-        <div class="modal" style="max-width:420px">
-            <div class="modal-header">
-                <div class="modal-title" id="dateModalTitle">שינוי תאריך</div>
-                <button class="modal-close" onclick="closeModal('dateModal')" id="dateCloseBtn" aria-label="סגירה"></button>
-            </div>
-            <form onsubmit="saveDate(event)">
-                <div class="form-group">
-                    <label class="form-label" for="dateInput" id="dateLabel">תאריך</label>
-                    <input type="date" id="dateInput" class="form-input" required>
-                </div>
-                <div id="dateError" style="color:var(--danger);font-size:0.9rem;margin-bottom:10px;display:none"></div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">שמירה</button>
-                    <button type="button" class="btn btn-outline" onclick="closeModal('dateModal')">ביטול</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script src="js/app.js?v=95"></script>
+    <script src="js/app.js?v=96"></script>
     <script>
         const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
         const DOW = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -158,7 +139,6 @@
         let marks = {};      // 'YYYY-MM-DD' -> { by, at }  (tapped by hand)
         let startDate = '';  // first day of the table
 
-        document.getElementById('dateCloseBtn').innerHTML = ICONS.close;
 
         const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         const fromIso = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
@@ -182,8 +162,8 @@
             const label = left > 1 ? `ימים ל${ev.name.slice(1)} · ${fmtDate(dateIso)}`
                 : left === 1 ? `מחר ${ev.name}! · ${fmtDate(dateIso)}`
                 : left === 0 ? `היום ${ev.name}! 🎉` : `${ev.name} הייתה ב-${fmtDate(dateIso)}`;
-            return `<button type="button" class="cd-count ${type}" onclick="openDate('${type}')" aria-label="שינוי תאריך ${ev.name}">
-                <span class="cd-count-edit">שינוי תאריך</span>
+            return `<button type="button" class="cd-count ${type}" onclick="goToDay('${dateIso}')" aria-label="הצגת יום ${ev.name} בטבלה">
+                <span class="cd-count-edit">הצגה בטבלה</span>
                 <div class="cd-count-num">${num}</div><div class="cd-count-label">${label}</div>
             </button>`;
         }
@@ -223,18 +203,18 @@
                     const d = iso(new Date(y, m - 1, day));
                     const label = `${day} ב${MONTHS[m - 1]}`;
                     if (d === w) {
-                        cells += `<button type="button" class="cd-day wedding" onclick="openDate('wedding')" title="יום החתונה – לחצו לשינוי התאריך" aria-label="${label} – יום החתונה, שינוי תאריך">💍</button>`;
+                        cells += `<div class="cd-day wedding" data-date="${d}" title="יום החתונה" aria-label="${label} – יום החתונה">💍</div>`;
                         continue;
                     }
                     if (!inTable.has(d)) { cells += `<div class="cd-day out">${day}</div>`; continue; }
                     if (d === h) {
-                        // Henna day: tap to change its date
-                        cells += `<button type="button" class="cd-day henna ${marks[d] ? 'marked' : ''} ${d === today ? 'today' : ''}" onclick="openDate('henna')" title="יום החינה – לחצו לשינוי התאריך" aria-label="${label} – יום החינה, שינוי תאריך">🌿${marks[d] ? X_SVG : ''}</button>`;
+                        // Henna day: crossed off by hand like any other day
+                        cells += `<button type="button" class="cd-day henna ${marks[d] ? 'marked' : ''} ${d === today ? 'today' : ''}" data-date="${d}" onclick="toggle('${d}')" title="יום החינה" aria-pressed="${marks[d] ? 'true' : 'false'}" aria-label="${label} – יום החינה">🌿${marks[d] ? X_SVG : ''}</button>`;
                         continue;
                     }
                     const mk = marks[d];
                     const tip = mk ? `סומן${mk.by ? ' ע״י ' + mk.by : ''} – לחצו לביטול` : 'לחצו לסימון איקס';
-                    cells += `<button type="button" class="cd-day ${mk ? 'marked' : ''} ${d === today ? 'today' : ''}" onclick="toggle('${d}')" title="${escapeHtml(tip)}" aria-pressed="${mk ? 'true' : 'false'}" aria-label="${label}">${day}${mk ? X_SVG : ''}</button>`;
+                    cells += `<button type="button" class="cd-day ${mk ? 'marked' : ''} ${d === today ? 'today' : ''}" data-date="${d}" onclick="toggle('${d}')" title="${escapeHtml(tip)}" aria-pressed="${mk ? 'true' : 'false'}" aria-label="${label}">${day}${mk ? X_SVG : ''}</button>`;
                 }
                 return `<div class="card cd-month">
                     <div class="cd-month-title"><span>${MONTHS[m - 1]} ${y}</span>${inTable.size ? `<span class="cd-month-count">${monthMarked}/${inTable.size}</span>` : ''}</div>
@@ -266,35 +246,15 @@
             catch (e) { showAlert('שגיאה בשמירה: ' + e.message); }
         }
 
-        // ===== Change the henna / wedding date =====
-        let editing = null;
-        function openDate(type) {
-            editing = type;
-            const ev = EVENTS[type];
-            document.getElementById('dateModalTitle').textContent = `שינוי תאריך ${ev.name} ${ev.emoji}`;
-            document.getElementById('dateLabel').textContent = `תאריך ${ev.name}`;
-            document.getElementById('dateInput').value = type === 'wedding' ? weddingIso() : hennaIso();
-            document.getElementById('dateError').style.display = 'none';
-            openModal('dateModal');
-        }
-
-        async function saveDate(e) {
-            e.preventDefault();
-            const value = document.getElementById('dateInput').value;
-            const err = document.getElementById('dateError');
-            const w = editing === 'wedding' ? value : weddingIso();
-            const h = editing === 'henna' ? value : hennaIso();
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) { err.textContent = 'נא לבחור תאריך'; err.style.display = 'block'; return; }
-            if (h >= w) { err.textContent = 'החינה צריכה להיות לפני החתונה'; err.style.display = 'block'; return; }
-            try {
-                await db.collection('settings').doc('main').set({ [EVENTS[editing].key]: value }, { merge: true });
-                weddingSettings = { ...weddingSettings, [EVENTS[editing].key]: value };
-                closeModal('dateModal');
-                render();
-            } catch (ex) {
-                err.textContent = 'שגיאה בשמירה: ' + ex.message;
-                err.style.display = 'block';
-            }
+        // ===== Tap the henna / wedding card: jump to that day in the table =====
+        function goToDay(dateIso) {
+            const cell = document.querySelector('.cd-day[data-date="' + dateIso + '"]');
+            if (!cell) return;
+            cell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            cell.classList.remove('flash');
+            void cell.offsetWidth; // restart the animation on repeated taps
+            cell.classList.add('flash');
+            setTimeout(() => cell.classList.remove('flash'), 2000);
         }
 
         // A new day starts while the page is open: refresh at midnight (moves the "today" frame)

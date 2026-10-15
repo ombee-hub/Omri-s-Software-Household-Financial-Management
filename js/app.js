@@ -309,7 +309,7 @@ function coupleTitle(s = weddingSettings) {
 // ===== Side menu (shared by every page) =====
 // The system now holds only the countdown table
 const NAV_LINKS = [
-    { href: 'countdown.html?v=5', label: 'טבלת ייאוש', icon: ICONS.calendar },
+    { href: 'countdown.html?v=6', label: 'טבלת ייאוש', icon: ICONS.calendar },
 ];
 const ACCOUNT_LINKS = [];
 
@@ -414,7 +414,7 @@ function handleAuthState(user) {
         return;
     }
     if (user && isLoginPage) {
-        window.location.replace('countdown.html?v=5');
+        window.location.replace('countdown.html?v=6');
         return;
     }
     if (!isLoginPage) {
