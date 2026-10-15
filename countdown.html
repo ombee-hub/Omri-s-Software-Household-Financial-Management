@@ -89,7 +89,7 @@
     <div class="page-title-bar">
         <div class="container">
             <h2>טבלת ייאוש</h2>
-            <div class="subtitle">כל יום שעובר מקבל איקס לבד. רק לחכות 😊</div>
+            <div class="subtitle">כל יום מקבל איקס לבד, כבר מתחילתו (מחצות). רק לחכות 😊</div>
         </div>
     </div>
 
@@ -97,7 +97,7 @@
         <div id="hero" class="cd-hero"></div>
         <div class="card" id="progressCard"></div>
         <div class="cd-legend no-print">
-            <span><span class="cd-swatch" style="background:#fbf3f8"></span> עבר (איקס אוטומטי)</span>
+            <span><span class="cd-swatch" style="background:#fbf3f8"></span> איקס אוטומטי (כל יום מחצות)</span>
             <span><span class="cd-swatch" style="border:2px solid var(--primary)"></span> היום</span>
             <span><span class="cd-swatch" style="background:linear-gradient(135deg,#8a5a1f,#c08a3e);border:none"></span> חינה</span>
             <span><span class="cd-swatch" style="background:linear-gradient(135deg,var(--primary),var(--primary-light));border:none"></span> חתונה</span>
@@ -105,7 +105,7 @@
         <div class="cd-months" id="months"></div>
     </main>
 
-    <script src="js/app.js?v=92"></script>
+    <script src="js/app.js?v=93"></script>
     <script>
         const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
         const DOW = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -145,8 +145,8 @@
             document.getElementById('hero').innerHTML =
                 (h < w ? countCard('henna', '🌿', 'חינה', h) : '') + countCard('wedding', '💍', 'חתונה', w);
 
-            // Every day before today gets an X automatically
-            const passed = days.filter(d => d < today).length;
+            // Each day gets its X automatically as soon as it starts (from midnight)
+            const passed = days.filter(d => d <= today).length;
             const pct = days.length ? Math.round(passed / days.length * 100) : 0;
             document.getElementById('progressCard').innerHTML = `
                 <div class="cd-progress-row"><span>עברו</span><span><strong>${fmtNum(passed)}</strong> מתוך ${fmtNum(days.length)} ימים (${pct}%)</span></div>
@@ -163,16 +163,16 @@
                 const first = new Date(y, m - 1, 1);
                 const dim = new Date(y, m, 0).getDate();
                 const inTable = new Set(byMonth.get(key));
-                const monthPassed = byMonth.get(key).filter(d => d < today).length;
+                const monthPassed = byMonth.get(key).filter(d => d <= today).length;
                 let cells = DOW.map(d => `<div class="cd-dow">${d}</div>`).join('');
                 for (let i = 0; i < first.getDay(); i++) cells += '<div class="cd-day empty"></div>';
                 for (let day = 1; day <= dim; day++) {
                     const d = iso(new Date(y, m - 1, day));
                     if (d === w) { cells += `<div class="cd-day wedding" title="יום החתונה">💍</div>`; continue; }
                     if (!inTable.has(d)) { cells += `<div class="cd-day out">${day}</div>`; continue; }
-                    const cls = [d < today ? 'passed' : '', d === today ? 'today' : '', d === h ? 'henna' : ''].filter(Boolean).join(' ');
+                    const cls = [d <= today ? 'passed' : '', d === today ? 'today' : '', d === h ? 'henna' : ''].filter(Boolean).join(' ');
                     const content = d === h ? '🌿' : day;
-                    const title = d === h ? 'יום החינה' : d < today ? 'עבר' : d === today ? 'היום' : '';
+                    const title = d === h ? 'יום החינה' : d === today ? 'היום' : d < today ? 'עבר' : '';
                     cells += `<div class="cd-day ${cls}" title="${title}" aria-label="${day} ב${MONTHS[m - 1]}${title ? ' – ' + title : ''}">${content}</div>`;
                 }
                 return `<div class="card cd-month">

@@ -309,17 +309,21 @@ function coupleTitle(s = weddingSettings) {
 // ===== Side menu (shared by every page) =====
 // The system now holds only the countdown table
 const NAV_LINKS = [
-    { href: 'countdown.html', label: 'טבלת ייאוש', icon: ICONS.calendar },
+    { href: 'countdown.html?v=3', label: 'טבלת ייאוש', icon: ICONS.calendar },
 ];
 const ACCOUNT_LINKS = [];
 
 function renderHeader() {
     const activePage = window.location.pathname.split('/').pop() || 'index.html';
     const displayName = getDisplayName(currentUser());
-    const link = (l) => `
-        <a href="${l.href}" class="side-link ${l.href === activePage ? 'active' : ''}" ${l.href === activePage ? 'aria-current="page"' : ''}>
+    // Links may carry ?v= to force a fresh load; the active page is matched without it
+    const link = (l) => {
+        const page = l.href.split('?')[0];
+        return `
+        <a href="${l.href}" class="side-link ${page === activePage ? 'active' : ''}" ${page === activePage ? 'aria-current="page"' : ''}>
             ${l.icon}<span>${l.label}</span>
         </a>`;
+    };
     const brandText = `
         <span class="brand-text">
             <span class="brand-names" data-brand-names>${escapeHtml(coupleTitle())}</span>
@@ -410,7 +414,7 @@ function handleAuthState(user) {
         return;
     }
     if (user && isLoginPage) {
-        window.location.replace('countdown.html');
+        window.location.replace('countdown.html?v=3');
         return;
     }
     if (!isLoginPage) {
