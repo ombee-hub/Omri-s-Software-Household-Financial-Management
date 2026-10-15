@@ -19,7 +19,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="js/firebase-init.js"></script>
     <style>
-        .cd-hero { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+        .cd-hero { display: flex; flex-wrap: wrap; margin: 0 -7px 18px; }
+        .cd-hero .cd-count { margin: 0 7px 14px; }
         .cd-count {
             flex: 1;
             min-width: 180px;
@@ -43,6 +44,7 @@
         .cd-day {
             position: relative;
             aspect-ratio: 1;
+            min-height: 36px; /* older iPhones without aspect-ratio still get proper squares */
             border: 1px solid var(--border);
             border-radius: 8px;
             background: white;
@@ -57,15 +59,17 @@
         .cd-day.out { color: var(--border); background: var(--light-2); }
         .cd-day.today { border: 2px solid var(--primary); }
         .cd-day.passed { background: #fbf3f8; color: var(--gray); }
-        /* Automatic red X on every day that has passed */
-        .cd-day.passed::after {
-            content: '';
+        /* Automatic red X: a plain SVG drawing, which every browser (old iPhones included) shows */
+        .cd-x {
             position: absolute;
-            inset: 12%;
-            background:
-                linear-gradient(45deg, transparent calc(50% - 2px), #d03b3b calc(50% - 2px), #d03b3b calc(50% + 2px), transparent calc(50% + 2px)),
-                linear-gradient(-45deg, transparent calc(50% - 2px), #d03b3b calc(50% - 2px), #d03b3b calc(50% + 2px), transparent calc(50% + 2px));
-            border-radius: 2px;
+            top: 12%;
+            left: 12%;
+            width: 76%;
+            height: 76%;
+            fill: none;
+            stroke: #d03b3b;
+            stroke-width: 1.3;
+            stroke-linecap: round;
             pointer-events: none;
         }
         .cd-day.henna { background: linear-gradient(135deg, #8a5a1f, #c08a3e); color: white; border: none; font-size: 1.2rem; }
@@ -78,7 +82,7 @@
             .sidebar, .mobile-topbar, .sidebar-overlay, .cd-actions, .no-print { display: none !important; }
             body.has-sidebar { padding-right: 0 !important; }
             .cd-month { break-inside: avoid; box-shadow: none; border: 1px solid #ddd; }
-            .cd-day.passed::after, .cd-day.henna, .cd-day.wedding, .cd-count { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            .cd-x, .cd-day.henna, .cd-day.wedding, .cd-count { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
         }
     </style>
 </head>
@@ -105,13 +109,14 @@
         <div class="cd-months" id="months"></div>
     </main>
 
-    <script src="js/app.js?v=93"></script>
+    <script src="js/app.js?v=94"></script>
     <script>
         const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
         const DOW = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
         const WEDDING_DATE = '2027-02-03'; // fixed
         const HENNA_DATE = '2027-01-20';
         const ref = () => db.collection('countdown').doc('main');
+        const X_SVG = '<svg class="cd-x" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1 9 9M9 1 1 9"/></svg>';
         let startDate = '';  // first day of the table
 
         const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -171,7 +176,7 @@
                     if (d === w) { cells += `<div class="cd-day wedding" title="יום החתונה">💍</div>`; continue; }
                     if (!inTable.has(d)) { cells += `<div class="cd-day out">${day}</div>`; continue; }
                     const cls = [d <= today ? 'passed' : '', d === today ? 'today' : '', d === h ? 'henna' : ''].filter(Boolean).join(' ');
-                    const content = d === h ? '🌿' : day;
+                    const content = (d === h ? '🌿' : day) + (d <= today ? X_SVG : '');
                     const title = d === h ? 'יום החינה' : d === today ? 'היום' : d < today ? 'עבר' : '';
                     cells += `<div class="cd-day ${cls}" title="${title}" aria-label="${day} ב${MONTHS[m - 1]}${title ? ' – ' + title : ''}">${content}</div>`;
                 }
@@ -188,7 +193,14 @@
             const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
             setTimeout(() => { render(); scheduleMidnight(); }, next - now);
         }
-        document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+        const LOADED_AT = Date.now();
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) return;
+            if (Date.now() - LOADED_AT > 60 * 60 * 1000) { location.reload(); return; }
+            render();
+        });
+        // iPhone: reopening from the app switcher can restore the page without any event
+        window.addEventListener('pageshow', (e) => { if (e.persisted) location.reload(); });
 
         document.addEventListener('settings:change', render);
         document.addEventListener('auth:ready', () => {
