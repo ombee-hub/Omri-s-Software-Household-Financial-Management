@@ -124,7 +124,7 @@
         <div class="cd-months" id="months"></div>
     </main>
 
-    <script src="js/app.js?v=97"></script>
+    <script src="js/app.js?v=98"></script>
     <script>
         const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
         const DOW = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -175,14 +175,17 @@
             document.getElementById('hero').innerHTML =
                 (h < w ? countCard('henna', h) : '') + countCard('wedding', w);
 
-            const markedCount = days.filter(d => marks[d]).length;
-            const pct = days.length ? Math.round(markedCount / days.length * 100) : 0;
+            // Months that are over leave the table and no longer count
+            const thisMonth = today.slice(0, 7);
+            const shown = days.filter(d => d.slice(0, 7) >= thisMonth);
+            const markedCount = shown.filter(d => marks[d]).length;
+            const pct = shown.length ? Math.round(markedCount / shown.length * 100) : 0;
             document.getElementById('progressCard').innerHTML = `
-                <div class="cd-progress-row"><span>סימנתם</span><span><strong>${fmtNum(markedCount)}</strong> מתוך ${fmtNum(days.length)} ימים (${pct}%)</span></div>
+                <div class="cd-progress-row"><span>סימנתם</span><span><strong>${fmtNum(markedCount)}</strong> מתוך ${fmtNum(shown.length)} ימים (${pct}%)</span></div>
                 <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
                 <div class="cd-actions">
-                    ${days.includes(today) && !marks[today] ? `<button class="btn btn-primary btn-sm" onclick="toggle('${today}')">✕ לסמן את היום</button>` : ''}
-                    ${days.some(d => d < today && !marks[d]) ? `<button class="btn btn-outline btn-sm" onclick="markPast()">לסמן את כל הימים שעברו</button>` : ''}
+                    ${shown.includes(today) && !marks[today] ? `<button class="btn btn-primary btn-sm" onclick="toggle('${today}')">✕ לסמן את היום</button>` : ''}
+                    ${shown.some(d => d < today && !marks[d]) ? `<button class="btn btn-outline btn-sm" onclick="markPast()">לסמן את כל הימים שעברו</button>` : ''}
                     <button class="btn btn-outline btn-sm" onclick="window.print()">הדפסה</button>
                 </div>`;
 
@@ -192,7 +195,6 @@
             days.forEach(d => { const k = d.slice(0, 7); (byMonth.get(k) || byMonth.set(k, []).get(k)).push(d); });
             if (!byMonth.has(w.slice(0, 7))) byMonth.set(w.slice(0, 7), []);
             // When a month is over it leaves the table (from the 1st of the next month)
-            const thisMonth = today.slice(0, 7);
             monthsEl.innerHTML = [...byMonth.keys()].filter(key => key >= thisMonth).map(key => {
                 const [y, m] = key.split('-').map(Number);
                 const first = new Date(y, m - 1, 1);
@@ -238,7 +240,7 @@
 
         async function markPast() {
             const today = todayISO();
-            const past = tableDays().filter(d => d < today && !marks[d]);
+            const past = tableDays().filter(d => d.slice(0, 7) >= today.slice(0, 7) && d < today && !marks[d]);
             if (!past.length) return;
             const by = getDisplayName(currentUser());
             const add = {};
